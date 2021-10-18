@@ -10,3 +10,5 @@ edition = "2018"
 reqwest = { version = "0.11.4", features = ['blocking', 'json'] }
 tui = "0.16.0"
 serde = { version = "1.0.126", features = ['derive'] }
+clap = "~2.27.0"
+regex = "1"
