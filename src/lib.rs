@@ -10,6 +10,9 @@ pub mod models {
     pub struct Tag {
         pub id: String,
         pub name: String,
+
+        #[serde(default)]
+        pub tagged_recipes: Vec<Recipe>,
     }
 
     #[derive(Debug, Deserialize)]
@@ -58,7 +61,7 @@ pub mod models {
         #[serde(default)]
         pub error: String,
 
-        pub data: T,
+        pub data: Option<T>,
     }
 }
 
@@ -77,8 +80,12 @@ pub fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn E
     let client = Client::new();
 
     let response = client.get(url).send()?.json::<models::Answer<T>>()?;
-    match response.accept {
-        true => Ok(response.data),
-        false => Err(Box::new(KnifeError(response.error))),
+
+    match (response.accept, response.data) {
+        (true, Some(object)) => Ok(object),
+        (true, None) => Err(Box::new(KnifeError(String::from(
+            "Internal error. This should not happen.",
+        )))),
+        _ => Err(Box::new(KnifeError(response.error))),
     }
 }
