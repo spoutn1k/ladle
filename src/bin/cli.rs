@@ -1,5 +1,5 @@
 use chopstick::get;
-use chopstick::models::{Ingredient, Recipe, Tag};
+use chopstick::models::{Ingredient, Label, Recipe};
 #[macro_use]
 extern crate clap;
 
@@ -22,15 +22,17 @@ fn main() {
             )
         )
         (@subcommand ingredient =>
-            (about: "access ingredients")
+            (about: "Ingredients-related commands")
             (@subcommand list =>
-                (about: "list ingredients")
+                (about: "List existing ingredients")
+                (@arg pattern: "List only ingredients with names matching the given pattern")
             )
         )
         (@subcommand tag =>
             (about: "Label-related commands")
             (@subcommand list =>
                 (about: "List existing labels and their ID")
+                (@arg pattern: "List labels whose name match the given pattern")
             )
             (@subcommand show =>
                 (about: "List recipes tagged with a given label")
@@ -61,12 +63,15 @@ fn recipe_actions(matches: &clap::ArgMatches) {
     }
 }
 
-fn recipe_list(_pattern: Option<&str>) {
-    match get::<Vec<Recipe>>(&format!("{}/recipes", BASE_URL)) {
+fn recipe_list(pattern: Option<&str>) {
+    match get::<Vec<Recipe>>(&format!(
+        "{}/recipes?name={}",
+        BASE_URL,
+        pattern.unwrap_or("")
+    )) {
         Ok(recipes) => {
             recipes
                 .iter()
-                .filter(|recipe| _pattern.is_none() || recipe.name.contains(_pattern.unwrap()))
                 .map(|x| println!("{}\t{}", x.id, x.name))
                 .for_each(drop);
         }
@@ -99,8 +104,12 @@ fn ingredient_actions(matches: &clap::ArgMatches) {
     }
 }
 
-fn ingredient_list(_pattern: Option<&str>) {
-    match get::<Vec<Ingredient>>(&format!("{}/ingredients", BASE_URL)) {
+fn ingredient_list(pattern: Option<&str>) {
+    match get::<Vec<Ingredient>>(&format!(
+        "{}/ingredients?name={}",
+        BASE_URL,
+        pattern.unwrap_or("")
+    )) {
         Ok(ingredients) => {
             ingredients
                 .iter()
@@ -115,15 +124,7 @@ fn ingredient_list(_pattern: Option<&str>) {
 
 fn tag_actions(matches: &clap::ArgMatches) {
     match matches.subcommand() {
-        ("list", Some(_)) => match get::<Vec<Recipe>>(&format!("{}/labels", BASE_URL)) {
-            Ok(recipes) => {
-                recipes
-                    .iter()
-                    .map(|x| println!("{}\t{}", x.id, x.name))
-                    .for_each(drop);
-            }
-            Err(e) => eprintln!("{:?}", e),
-        },
+        ("list", Some(sub_m)) => tag_list(sub_m.value_of("pattern")),
         ("show", Some(sub_m)) => tag_show(sub_m.value_of("id")),
         _ => {
             println!("{}", matches.usage())
@@ -131,9 +132,28 @@ fn tag_actions(matches: &clap::ArgMatches) {
     }
 }
 
+fn tag_list(pattern: Option<&str>) {
+    let query = get::<Vec<Label>>(&format!(
+        "{}/labels?name={}",
+        BASE_URL,
+        pattern.unwrap_or("")
+    ));
+
+    match query {
+        Ok(tags) => {
+            tags.iter()
+                .map(|x| println!("{}\t{}", x.id, x.name))
+                .for_each(drop);
+        }
+        Err(e) => {
+            eprintln!("{:?}", e);
+        }
+    }
+}
+
 fn tag_show(_id: Option<&str>) {
     match _id {
-        Some(data) => match get::<Tag>(&format!("{}/labels/{}", BASE_URL, data)) {
+        Some(data) => match get::<Label>(&format!("{}/labels/{}", BASE_URL, data)) {
             Ok(label) => label
                 .tagged_recipes
                 .iter()

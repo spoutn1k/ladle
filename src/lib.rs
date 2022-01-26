@@ -7,7 +7,7 @@ pub mod models {
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
-    pub struct Tag {
+    pub struct Label {
         pub id: String,
         pub name: String,
 
@@ -51,7 +51,7 @@ pub mod models {
         pub dependencies: Vec<Dependency>,
 
         #[serde(default)]
-        pub tags: Vec<Tag>,
+        pub tags: Vec<Label>,
     }
 
     #[derive(Debug, Deserialize)]
