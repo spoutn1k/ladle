@@ -89,3 +89,33 @@ pub fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn E
         _ => Err(Box::new(KnifeError(response.error))),
     }
 }
+
+pub fn list_recipes(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
+    match get::<Vec<models::Recipe>>(&format!("{}/recipes?name={}", url, pattern)) {
+        Ok(recipes) => Some(recipes),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn list_ingredients(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
+    match get::<Vec<models::Ingredient>>(&format!("{}/ingredients?name={}", url, pattern)) {
+        Ok(ingredients) => Some(ingredients),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn list_labels(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
+    match get::<Vec<models::Label>>(&format!("{}/labels?name={}", url, pattern)) {
+        Ok(labels) => Some(labels),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}

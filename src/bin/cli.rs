@@ -1,5 +1,5 @@
-use chopstick::get;
-use chopstick::models::{Ingredient, Label, Recipe};
+use chopstick::models::{Label, Recipe};
+use chopstick::{get, list_ingredients, list_labels, list_recipes};
 #[macro_use]
 extern crate clap;
 
@@ -64,20 +64,11 @@ fn recipe_actions(matches: &clap::ArgMatches) {
 }
 
 fn recipe_list(pattern: Option<&str>) {
-    match get::<Vec<Recipe>>(&format!(
-        "{}/recipes?name={}",
-        BASE_URL,
-        pattern.unwrap_or("")
-    )) {
-        Ok(recipes) => {
-            recipes
-                .iter()
-                .map(|x| println!("{}\t{}", x.id, x.name))
-                .for_each(drop);
-        }
-        Err(e) => {
-            eprintln!("{:?}", e);
-        }
+    if let Some(recipes) = list_recipes(BASE_URL, pattern.unwrap_or("")) {
+        recipes
+            .iter()
+            .map(|x| println!("{}\t{}", x.id, x.name))
+            .for_each(drop);
     }
 }
 
@@ -105,20 +96,11 @@ fn ingredient_actions(matches: &clap::ArgMatches) {
 }
 
 fn ingredient_list(pattern: Option<&str>) {
-    match get::<Vec<Ingredient>>(&format!(
-        "{}/ingredients?name={}",
-        BASE_URL,
-        pattern.unwrap_or("")
-    )) {
-        Ok(ingredients) => {
-            ingredients
-                .iter()
-                .map(|x| println!("{}\t{}", x.id, x.name))
-                .for_each(drop);
-        }
-        Err(e) => {
-            eprintln!("{:?}", e);
-        }
+    if let Some(ingredients) = list_ingredients(BASE_URL, pattern.unwrap_or("")) {
+        ingredients
+            .iter()
+            .map(|x| println!("{}\t{}", x.id, x.name))
+            .for_each(drop);
     }
 }
 
@@ -133,27 +115,17 @@ fn tag_actions(matches: &clap::ArgMatches) {
 }
 
 fn tag_list(pattern: Option<&str>) {
-    let query = get::<Vec<Label>>(&format!(
-        "{}/labels?name={}",
-        BASE_URL,
-        pattern.unwrap_or("")
-    ));
-
-    match query {
-        Ok(tags) => {
-            tags.iter()
-                .map(|x| println!("{}\t{}", x.id, x.name))
-                .for_each(drop);
-        }
-        Err(e) => {
-            eprintln!("{:?}", e);
-        }
+    if let Some(labels) = list_labels(BASE_URL, pattern.unwrap_or("")) {
+        labels
+            .iter()
+            .map(|x| println!("{}\t{}", x.id, x.name))
+            .for_each(drop);
     }
 }
 
-fn tag_show(_id: Option<&str>) {
-    match _id {
-        Some(data) => match get::<Label>(&format!("{}/labels/{}", BASE_URL, data)) {
+fn tag_show(id: Option<&str>) {
+    if let Some(data) = id {
+        match get::<Label>(&format!("{}/labels/{}", BASE_URL, data)) {
             Ok(label) => label
                 .tagged_recipes
                 .iter()
@@ -162,7 +134,6 @@ fn tag_show(_id: Option<&str>) {
             Err(e) => {
                 eprintln!("{:?}", e);
             }
-        },
-        None => {}
+        }
     }
 }
