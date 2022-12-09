@@ -1,4 +1,5 @@
 use reqwest::blocking::Client;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
@@ -90,9 +91,105 @@ pub fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn E
     }
 }
 
-pub fn list_recipes(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
+fn post<'a, T: serde::de::DeserializeOwned>(
+    url: &str,
+    params: HashMap<&str, &str>,
+) -> Result<T, Box<dyn Error>> {
+    let client = Client::new();
+
+    let response = client
+        .post(url)
+        .form(&params)
+        .send()?
+        .json::<models::Answer<T>>()?;
+
+    match (response.accept, response.data) {
+        (true, Some(object)) => Ok(object),
+        (true, None) => Err(Box::new(KnifeError(String::from(
+            "Internal error. This should not happen.",
+        )))),
+        _ => Err(Box::new(KnifeError(response.error))),
+    }
+}
+
+fn put<'a, T: serde::de::DeserializeOwned>(
+    url: &str,
+    params: HashMap<&str, &str>,
+) -> Result<T, Box<dyn Error>> {
+    let client = Client::new();
+
+    let response = client
+        .put(url)
+        .form(&params)
+        .send()?
+        .json::<models::Answer<T>>()?;
+
+    match (response.accept, response.data) {
+        (true, Some(object)) => Ok(object),
+        (true, None) => Err(Box::new(KnifeError(String::from(
+            "Internal error. This should not happen.",
+        )))),
+        _ => Err(Box::new(KnifeError(response.error))),
+    }
+}
+
+fn delete(url: &str) -> Result<(), Box<dyn Error>> {
+    let client = Client::new();
+
+    let response = client.delete(url).send()?.json::<models::Answer<()>>()?;
+
+    match (response.accept, response.data) {
+        (true, _) => Ok(()),
+        _ => Err(Box::new(KnifeError(response.error))),
+    }
+}
+
+pub fn recipe_index(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
     match get::<Vec<models::Recipe>>(&format!("{}/recipes?name={}", url, pattern)) {
         Ok(recipes) => Some(recipes),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_get(url: &str, id: &str) -> Option<models::Recipe> {
+    match get::<models::Recipe>(&format!("{}/recipes/{}", url, id)) {
+        Ok(recipe) => Some(recipe),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_create(url: &str, name: &str) -> Option<models::Recipe> {
+    let mut params = HashMap::new();
+    params.insert("name", name);
+
+    match post::<models::Recipe>(&format!("{}/recipes/new", url), params) {
+        Ok(recipe) => Some(recipe),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Recipe> {
+    match put::<models::Recipe>(&format!("{}/recipes/{}", url, id), data) {
+        Ok(recipe) => Some(recipe),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_delete(url: &str, id: &str) -> Option<()> {
+    match delete(&format!("{}/recipes/{}", url, id)) {
+        Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
             None

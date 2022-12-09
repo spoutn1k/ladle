@@ -1,5 +1,6 @@
 use chopstick::models::{Label, Recipe};
-use chopstick::{get, list_ingredients, list_labels, list_recipes};
+use chopstick::{get, list_ingredients, list_labels, recipe_index};
+use std::collections::HashMap;
 #[macro_use]
 extern crate clap;
 
@@ -18,6 +19,21 @@ fn main() {
             )
             (@subcommand show =>
                 (about: "show details about a recipe")
+                (@arg id: +required "target recipe id")
+            )
+            (@subcommand create =>
+                (about: "create a new recipe")
+                (@arg name: +required "target recipe name")
+            )
+            (@subcommand edit =>
+                (about: "edit a recipe")
+                (@arg id: +required "target recipe id")
+                (@arg name: -n --name +takes_value "new recipe name")
+                (@arg author: -a --author +takes_value "new recipe author")
+                (@arg description: -d --description +takes_value "new recipe description")
+            )
+            (@subcommand delete =>
+                (about: "delete a recipe")
                 (@arg id: +required "target recipe id")
             )
         )
@@ -57,6 +73,14 @@ fn recipe_actions(matches: &clap::ArgMatches) {
     match matches.subcommand() {
         ("list", Some(sub_m)) => recipe_list(sub_m.value_of("pattern")),
         ("show", Some(sub_m)) => recipe_show(sub_m.value_of("id")),
+        ("create", Some(sub_m)) => recipe_create(sub_m.value_of("name")),
+        ("edit", Some(sub_m)) => recipe_edit(
+            sub_m.value_of("id"),
+            sub_m.value_of("name"),
+            sub_m.value_of("author"),
+            sub_m.value_of("description"),
+        ),
+        ("delete", Some(sub_m)) => recipe_delete(sub_m.value_of("id")),
         _ => {
             println!("{}", matches.usage())
         }
@@ -64,7 +88,7 @@ fn recipe_actions(matches: &clap::ArgMatches) {
 }
 
 fn recipe_list(pattern: Option<&str>) {
-    if let Some(recipes) = list_recipes(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(recipes) = recipe_index(BASE_URL, pattern.unwrap_or("")) {
         recipes
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -73,17 +97,43 @@ fn recipe_list(pattern: Option<&str>) {
 }
 
 fn recipe_show(_id: Option<&str>) {
-    match _id {
-        Some(data) => match get::<Recipe>(&format!("{}/recipes/{}", BASE_URL, data)) {
-            Ok(recipe) => {
-                println!("{:?}", recipe)
-            }
-            Err(e) => {
-                eprintln!("{:?}", e);
-            }
-        },
-        None => {}
+    if let Some(data) = _id {
+        match get::<Recipe>(&format!("{}/recipes/{}", BASE_URL, data)) {
+            Ok(recipe) => println!("{:?}", recipe),
+            Err(e) => eprintln!("{:?}", e),
+        }
     }
+}
+
+fn recipe_create(name: Option<&str>) {
+    chopstick::recipe_create(BASE_URL, name.unwrap());
+}
+
+fn recipe_edit(
+    id: Option<&str>,
+    name: Option<&str>,
+    author: Option<&str>,
+    description: Option<&str>,
+) {
+    let mut params = HashMap::new();
+
+    if let Some(value) = name {
+        params.insert("name", value);
+    }
+
+    if let Some(value) = author {
+        params.insert("author", value);
+    }
+
+    if let Some(value) = description {
+        params.insert("description", value);
+    }
+
+    chopstick::recipe_update(BASE_URL, id.unwrap(), params);
+}
+
+fn recipe_delete(id: Option<&str>) {
+    chopstick::recipe_delete(BASE_URL, id.unwrap());
 }
 
 fn ingredient_actions(matches: &clap::ArgMatches) {
