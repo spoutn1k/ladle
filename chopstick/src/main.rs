@@ -142,7 +142,7 @@ fn label_actions(matches: &clap::ArgMatches) {
 }
 
 fn recipe_list(pattern: Option<&str>) {
-    if let Some(recipes) = chopstick::recipe_index(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(recipes) = ladle::recipe_index(BASE_URL, pattern.unwrap_or("")) {
         recipes
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -151,7 +151,7 @@ fn recipe_list(pattern: Option<&str>) {
 }
 
 fn recipe_show(_id: Option<&str>) {
-    if let Some(recipe) = chopstick::recipe_get(BASE_URL, _id.unwrap()) {
+    if let Some(recipe) = ladle::recipe_get(BASE_URL, _id.unwrap()) {
         if let Ok(json) = serde_json::to_string(&recipe) {
             println!("{}", json);
         } else {
@@ -161,7 +161,7 @@ fn recipe_show(_id: Option<&str>) {
 }
 
 fn recipe_create(name: Option<&str>) {
-    chopstick::recipe_create(BASE_URL, name.unwrap());
+    ladle::recipe_create(BASE_URL, name.unwrap());
 }
 
 fn recipe_edit(
@@ -184,15 +184,15 @@ fn recipe_edit(
         params.insert("description", value);
     }
 
-    chopstick::recipe_update(BASE_URL, id.unwrap(), params);
+    ladle::recipe_update(BASE_URL, id.unwrap(), params);
 }
 
 fn recipe_delete(id: Option<&str>) {
-    chopstick::recipe_delete(BASE_URL, id.unwrap());
+    ladle::recipe_delete(BASE_URL, id.unwrap());
 }
 
 fn ingredient_list(pattern: Option<&str>) {
-    if let Some(ingredients) = chopstick::ingredient_index(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(ingredients) = ladle::ingredient_index(BASE_URL, pattern.unwrap_or("")) {
         ingredients
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -201,7 +201,7 @@ fn ingredient_list(pattern: Option<&str>) {
 }
 
 fn ingredient_show(_id: Option<&str>) {
-    if let Some(ingredient) = chopstick::ingredient_get(BASE_URL, _id.unwrap()) {
+    if let Some(ingredient) = ladle::ingredient_get(BASE_URL, _id.unwrap()) {
         if let Ok(json) = serde_json::to_string(&ingredient) {
             println!("{}", json);
         } else {
@@ -211,7 +211,7 @@ fn ingredient_show(_id: Option<&str>) {
 }
 
 fn ingredient_create(name: Option<&str>) {
-    chopstick::ingredient_create(BASE_URL, name.unwrap());
+    ladle::ingredient_create(BASE_URL, name.unwrap());
 }
 
 fn ingredient_edit(id: Option<&str>, name: Option<&str>) {
@@ -221,15 +221,15 @@ fn ingredient_edit(id: Option<&str>, name: Option<&str>) {
         params.insert("name", value);
     }
 
-    chopstick::ingredient_update(BASE_URL, id.unwrap(), params);
+    ladle::ingredient_update(BASE_URL, id.unwrap(), params);
 }
 
 fn ingredient_delete(id: Option<&str>) {
-    chopstick::ingredient_delete(BASE_URL, id.unwrap());
+    ladle::ingredient_delete(BASE_URL, id.unwrap());
 }
 
 fn label_list(pattern: Option<&str>) {
-    if let Some(labels) = chopstick::label_index(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(labels) = ladle::label_index(BASE_URL, pattern.unwrap_or("")) {
         labels
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -238,7 +238,7 @@ fn label_list(pattern: Option<&str>) {
 }
 
 fn label_show(_id: Option<&str>) {
-    if let Some(label) = chopstick::label_get(BASE_URL, _id.unwrap()) {
+    if let Some(label) = ladle::label_get(BASE_URL, _id.unwrap()) {
         if let Ok(json) = serde_json::to_string(&label) {
             println!("{}", json);
         } else {
@@ -248,7 +248,7 @@ fn label_show(_id: Option<&str>) {
 }
 
 fn label_create(name: Option<&str>) {
-    chopstick::label_create(BASE_URL, name.unwrap());
+    ladle::label_create(BASE_URL, name.unwrap());
 }
 
 fn label_edit(id: Option<&str>, name: Option<&str>) {
@@ -258,9 +258,9 @@ fn label_edit(id: Option<&str>, name: Option<&str>) {
         params.insert("name", value);
     }
 
-    chopstick::label_update(BASE_URL, id.unwrap(), params);
+    ladle::label_update(BASE_URL, id.unwrap(), params);
 }
 
 fn label_delete(id: Option<&str>) {
-    chopstick::label_delete(BASE_URL, id.unwrap());
+    ladle::label_delete(BASE_URL, id.unwrap());
 }
