@@ -6,8 +6,9 @@ use std::fmt;
 pub mod models {
 
     use serde::Deserialize;
+    use serde::Serialize;
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Label {
         pub id: String,
         pub name: String,
@@ -16,25 +17,25 @@ pub mod models {
         pub tagged_recipes: Vec<Recipe>,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Ingredient {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Requirement {
         pub ingredient: Ingredient,
         pub quantity: String,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Dependency {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Recipe {
         pub id: String,
         pub name: String,
@@ -112,7 +113,7 @@ fn post<'a, T: serde::de::DeserializeOwned>(
     }
 }
 
-fn put<'a, T: serde::de::DeserializeOwned>(
+fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
@@ -197,7 +198,7 @@ pub fn recipe_delete(url: &str, id: &str) -> Option<()> {
     }
 }
 
-pub fn list_ingredients(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
+pub fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
     match get::<Vec<models::Ingredient>>(&format!("{}/ingredients?name={}", url, pattern)) {
         Ok(ingredients) => Some(ingredients),
         Err(e) => {
@@ -207,9 +208,99 @@ pub fn list_ingredients(url: &str, pattern: &str) -> Option<Vec<models::Ingredie
     }
 }
 
-pub fn list_labels(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
+pub fn ingredient_get(url: &str, id: &str) -> Option<models::Ingredient> {
+    match get::<models::Ingredient>(&format!("{}/ingredients/{}", url, id)) {
+        Ok(ingredient) => Some(ingredient),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn ingredient_create(url: &str, name: &str) -> Option<models::Ingredient> {
+    let mut params = HashMap::new();
+    params.insert("name", name);
+
+    match post::<models::Ingredient>(&format!("{}/ingredients/new", url), params) {
+        Ok(ingredient) => Some(ingredient),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn ingredient_update(
+    url: &str,
+    id: &str,
+    data: HashMap<&str, &str>,
+) -> Option<models::Ingredient> {
+    match put::<models::Ingredient>(&format!("{}/ingredients/{}", url, id), data) {
+        Ok(ingredient) => Some(ingredient),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn ingredient_delete(url: &str, id: &str) -> Option<()> {
+    match delete(&format!("{}/ingredients/{}", url, id)) {
+        Ok(()) => Some(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn label_index(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
     match get::<Vec<models::Label>>(&format!("{}/labels?name={}", url, pattern)) {
         Ok(labels) => Some(labels),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn label_get(url: &str, id: &str) -> Option<models::Label> {
+    match get::<models::Label>(&format!("{}/labels/{}", url, id)) {
+        Ok(label) => Some(label),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn label_create(url: &str, name: &str) -> Option<models::Label> {
+    let mut params = HashMap::new();
+    params.insert("name", name);
+
+    match post::<models::Label>(&format!("{}/labels/new", url), params) {
+        Ok(label) => Some(label),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn label_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Label> {
+    match put::<models::Label>(&format!("{}/labels/{}", url, id), data) {
+        Ok(label) => Some(label),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn label_delete(url: &str, id: &str) -> Option<()> {
+    match delete(&format!("{}/labels/{}", url, id)) {
+        Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
             None
