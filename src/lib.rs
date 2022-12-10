@@ -1,4 +1,4 @@
-use reqwest::blocking::Client;
+use reqwest::Client;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
@@ -78,10 +78,15 @@ impl fmt::Display for KnifeError {
 
 impl Error for KnifeError {}
 
-pub fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn Error>> {
+async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    let response = client.get(url).send()?.json::<models::Answer<T>>()?;
+    let response = client
+        .get(url)
+        .send()
+        .await?
+        .json::<models::Answer<T>>()
+        .await?;
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
@@ -92,7 +97,7 @@ pub fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn E
     }
 }
 
-fn post<'a, T: serde::de::DeserializeOwned>(
+async fn post<'a, T: serde::de::DeserializeOwned>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
@@ -101,8 +106,10 @@ fn post<'a, T: serde::de::DeserializeOwned>(
     let response = client
         .post(url)
         .form(&params)
-        .send()?
-        .json::<models::Answer<T>>()?;
+        .send()
+        .await?
+        .json::<models::Answer<T>>()
+        .await?;
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
@@ -113,7 +120,7 @@ fn post<'a, T: serde::de::DeserializeOwned>(
     }
 }
 
-fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
+async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
@@ -122,8 +129,10 @@ fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
     let response = client
         .put(url)
         .form(&params)
-        .send()?
-        .json::<models::Answer<T>>()?;
+        .send()
+        .await?
+        .json::<models::Answer<T>>()
+        .await?;
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
@@ -134,10 +143,15 @@ fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
     }
 }
 
-fn delete(url: &str) -> Result<(), Box<dyn Error>> {
+async fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     let client = Client::new();
 
-    let response = client.delete(url).send()?.json::<models::Answer<()>>()?;
+    let response = client
+        .delete(url)
+        .send()
+        .await?
+        .json::<models::Answer<()>>()
+        .await?;
 
     match (response.accept, response.data) {
         (true, _) => Ok(()),
@@ -145,8 +159,11 @@ fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn recipe_index(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
-    match get::<Vec<models::Recipe>>(&format!("{}/recipes?name={}", url, pattern)) {
+pub async fn recipe_index(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
+    let endpoint = format!("{}/recipes?name={}", url, pattern);
+    let answer = get::<Vec<models::Recipe>>(&endpoint);
+
+    match answer.await {
         Ok(recipes) => Some(recipes),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -155,8 +172,11 @@ pub fn recipe_index(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
     }
 }
 
-pub fn recipe_get(url: &str, id: &str) -> Option<models::Recipe> {
-    match get::<models::Recipe>(&format!("{}/recipes/{}", url, id)) {
+pub async fn recipe_get(url: &str, id: &str) -> Option<models::Recipe> {
+    let endpoint = format!("{}/recipes/{}", url, id);
+    let answer = get::<models::Recipe>(&endpoint);
+
+    match answer.await {
         Ok(recipe) => Some(recipe),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -165,11 +185,13 @@ pub fn recipe_get(url: &str, id: &str) -> Option<models::Recipe> {
     }
 }
 
-pub fn recipe_create(url: &str, name: &str) -> Option<models::Recipe> {
+pub async fn recipe_create(url: &str, name: &str) -> Option<models::Recipe> {
     let mut params = HashMap::new();
     params.insert("name", name);
+    let endpoint = format!("{}/recipes/new", url);
+    let answer = post::<models::Recipe>(&endpoint, params);
 
-    match post::<models::Recipe>(&format!("{}/recipes/new", url), params) {
+    match answer.await {
         Ok(recipe) => Some(recipe),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -178,8 +200,14 @@ pub fn recipe_create(url: &str, name: &str) -> Option<models::Recipe> {
     }
 }
 
-pub fn recipe_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Recipe> {
-    match put::<models::Recipe>(&format!("{}/recipes/{}", url, id), data) {
+pub async fn recipe_update(
+    url: &str,
+    id: &str,
+    data: HashMap<&str, &str>,
+) -> Option<models::Recipe> {
+    let endpoint = format!("{}/recipes/{}", url, id);
+    let answer = put::<models::Recipe>(&endpoint, data);
+    match answer.await {
         Ok(recipe) => Some(recipe),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -188,8 +216,10 @@ pub fn recipe_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<m
     }
 }
 
-pub fn recipe_delete(url: &str, id: &str) -> Option<()> {
-    match delete(&format!("{}/recipes/{}", url, id)) {
+pub async fn recipe_delete(url: &str, id: &str) -> Option<()> {
+    let endpoint = format!("{}/recipes/{}", url, id);
+    let answer = delete(&endpoint);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -198,10 +228,12 @@ pub fn recipe_delete(url: &str, id: &str) -> Option<()> {
     }
 }
 
-pub fn recipe_link(url: &str, id: &str, required_id: &str) -> Option<()> {
+pub async fn recipe_link(url: &str, id: &str, required_id: &str) -> Option<()> {
     let mut params = HashMap::new();
     params.insert("required_id", required_id);
-    match post(&format!("{}/recipes/{}/dependencies/add", url, id), params) {
+    let endpoint = format!("{}/recipes/{}/dependencies/add", url, id);
+    let answer = post(&endpoint, params);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -210,11 +242,10 @@ pub fn recipe_link(url: &str, id: &str, required_id: &str) -> Option<()> {
     }
 }
 
-pub fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Option<()> {
-    match delete(&format!(
-        "{}/recipes/{}/dependencies/{}",
-        url, id, required_id
-    )) {
+pub async fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Option<()> {
+    let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
+    let answer = delete(&endpoint);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -223,10 +254,12 @@ pub fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Option<()> {
     }
 }
 
-pub fn recipe_tag(url: &str, id: &str, label_name: &str) -> Option<()> {
+pub async fn recipe_tag(url: &str, id: &str, label_name: &str) -> Option<()> {
     let mut params = HashMap::new();
     params.insert("name", label_name);
-    match post(&format!("{}/recipes/{}/tags/add", url, id), params) {
+    let endpoint = format!("{}/recipes/{}/tags/add", url, id);
+    let answer = post(&endpoint, params);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -235,8 +268,10 @@ pub fn recipe_tag(url: &str, id: &str, label_name: &str) -> Option<()> {
     }
 }
 
-pub fn recipe_untag(url: &str, id: &str, label_id: &str) -> Option<()> {
-    match delete(&format!("{}/recipes/{}/tags/{}", url, id, label_id)) {
+pub async fn recipe_untag(url: &str, id: &str, label_id: &str) -> Option<()> {
+    let endpoint = format!("{}/recipes/{}/tags/{}", url, id, label_id);
+    let answer = delete(&endpoint);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -245,8 +280,10 @@ pub fn recipe_untag(url: &str, id: &str, label_id: &str) -> Option<()> {
     }
 }
 
-pub fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
-    match get::<Vec<models::Ingredient>>(&format!("{}/ingredients?name={}", url, pattern)) {
+pub async fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
+    let endpoint = format!("{}/ingredients?name={}", url, pattern);
+    let answer = get::<Vec<models::Ingredient>>(&endpoint);
+    match answer.await {
         Ok(ingredients) => Some(ingredients),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -255,8 +292,10 @@ pub fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredie
     }
 }
 
-pub fn ingredient_get(url: &str, id: &str) -> Option<models::Ingredient> {
-    match get::<models::Ingredient>(&format!("{}/ingredients/{}", url, id)) {
+pub async fn ingredient_get(url: &str, id: &str) -> Option<models::Ingredient> {
+    let endpoint = format!("{}/ingredients/{}", url, id);
+    let answer = get::<models::Ingredient>(&endpoint);
+    match answer.await {
         Ok(ingredient) => Some(ingredient),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -265,11 +304,13 @@ pub fn ingredient_get(url: &str, id: &str) -> Option<models::Ingredient> {
     }
 }
 
-pub fn ingredient_create(url: &str, name: &str) -> Option<models::Ingredient> {
+pub async fn ingredient_create(url: &str, name: &str) -> Option<models::Ingredient> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
-    match post::<models::Ingredient>(&format!("{}/ingredients/new", url), params) {
+    let endpoint = format!("{}/ingredients/new", url);
+    let answer = post::<models::Ingredient>(&endpoint, params);
+    match answer.await {
         Ok(ingredient) => Some(ingredient),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -278,12 +319,14 @@ pub fn ingredient_create(url: &str, name: &str) -> Option<models::Ingredient> {
     }
 }
 
-pub fn ingredient_update(
+pub async fn ingredient_update(
     url: &str,
     id: &str,
     data: HashMap<&str, &str>,
 ) -> Option<models::Ingredient> {
-    match put::<models::Ingredient>(&format!("{}/ingredients/{}", url, id), data) {
+    let endpoint = format!("{}/ingredients/{}", url, id);
+    let answer = put::<models::Ingredient>(&endpoint, data);
+    match answer.await {
         Ok(ingredient) => Some(ingredient),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -292,8 +335,10 @@ pub fn ingredient_update(
     }
 }
 
-pub fn ingredient_delete(url: &str, id: &str) -> Option<()> {
-    match delete(&format!("{}/ingredients/{}", url, id)) {
+pub async fn ingredient_delete(url: &str, id: &str) -> Option<()> {
+    let endpoint = format!("{}/ingredients/{}", url, id);
+    let answer = delete(&endpoint);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -302,8 +347,10 @@ pub fn ingredient_delete(url: &str, id: &str) -> Option<()> {
     }
 }
 
-pub fn label_index(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
-    match get::<Vec<models::Label>>(&format!("{}/labels?name={}", url, pattern)) {
+pub async fn label_index(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
+    let endpoint = format!("{}/labels?name={}", url, pattern);
+    let answer = get::<Vec<models::Label>>(&endpoint);
+    match answer.await {
         Ok(labels) => Some(labels),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -312,8 +359,10 @@ pub fn label_index(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
     }
 }
 
-pub fn label_get(url: &str, id: &str) -> Option<models::Label> {
-    match get::<models::Label>(&format!("{}/labels/{}", url, id)) {
+pub async fn label_get(url: &str, id: &str) -> Option<models::Label> {
+    let endpoint = format!("{}/labels/{}", url, id);
+    let answer = get::<models::Label>(&endpoint);
+    match answer.await {
         Ok(label) => Some(label),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -322,11 +371,13 @@ pub fn label_get(url: &str, id: &str) -> Option<models::Label> {
     }
 }
 
-pub fn label_create(url: &str, name: &str) -> Option<models::Label> {
+pub async fn label_create(url: &str, name: &str) -> Option<models::Label> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
-    match post::<models::Label>(&format!("{}/labels/new", url), params) {
+    let endpoint = format!("{}/labels/new", url);
+    let answer = post::<models::Label>(&endpoint, params);
+    match answer.await {
         Ok(label) => Some(label),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -335,8 +386,10 @@ pub fn label_create(url: &str, name: &str) -> Option<models::Label> {
     }
 }
 
-pub fn label_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Label> {
-    match put::<models::Label>(&format!("{}/labels/{}", url, id), data) {
+pub async fn label_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Label> {
+    let endpoint = format!("{}/labels/{}", url, id);
+    let answer = put::<models::Label>(&endpoint, data);
+    match answer.await {
         Ok(label) => Some(label),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -345,8 +398,10 @@ pub fn label_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<mo
     }
 }
 
-pub fn label_delete(url: &str, id: &str) -> Option<()> {
-    match delete(&format!("{}/labels/{}", url, id)) {
+pub async fn label_delete(url: &str, id: &str) -> Option<()> {
+    let endpoint = format!("{}/labels/{}", url, id);
+    let answer = delete(&endpoint);
+    match answer.await {
         Ok(()) => Some(()),
         Err(e) => {
             eprintln!("{:?}", e);
