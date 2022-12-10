@@ -198,6 +198,53 @@ pub fn recipe_delete(url: &str, id: &str) -> Option<()> {
     }
 }
 
+pub fn recipe_link(url: &str, id: &str, required_id: &str) -> Option<()> {
+    let mut params = HashMap::new();
+    params.insert("required_id", required_id);
+    match post(&format!("{}/recipes/{}/dependencies/add", url, id), params) {
+        Ok(()) => Some(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Option<()> {
+    match delete(&format!(
+        "{}/recipes/{}/dependencies/{}",
+        url, id, required_id
+    )) {
+        Ok(()) => Some(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_tag(url: &str, id: &str, label_name: &str) -> Option<()> {
+    let mut params = HashMap::new();
+    params.insert("name", label_name);
+    match post(&format!("{}/recipes/{}/tags/add", url, id), params) {
+        Ok(()) => Some(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
+pub fn recipe_untag(url: &str, id: &str, label_id: &str) -> Option<()> {
+    match delete(&format!("{}/recipes/{}/tags/{}", url, id, label_id)) {
+        Ok(()) => Some(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            None
+        }
+    }
+}
+
 pub fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
     match get::<Vec<models::Ingredient>>(&format!("{}/ingredients?name={}", url, pattern)) {
         Ok(ingredients) => Some(ingredients),
