@@ -8,7 +8,7 @@ pub mod models {
     use serde::Deserialize;
     use serde::Serialize;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     pub struct Label {
         pub id: String,
         pub name: String,
@@ -17,25 +17,25 @@ pub mod models {
         pub tagged_recipes: Vec<Recipe>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     pub struct Ingredient {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     pub struct Requirement {
         pub ingredient: Ingredient,
         pub quantity: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     pub struct Dependency {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     pub struct Recipe {
         pub id: String,
         pub name: String,
