@@ -1,12 +1,14 @@
+use futures::executor::block_on;
 use std::collections::HashMap;
 #[macro_use]
 extern crate clap;
 
 static BASE_URL: &str = "http://localhost:8000";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = clap_app!(Chopstick =>
-        (version: "0.0")
+        (version: "0.1")
         (author: "JBS <jb.skutnik@gmail.com>")
         (about: "Get data from a knife server")
         (@subcommand recipe =>
@@ -142,7 +144,8 @@ fn label_actions(matches: &clap::ArgMatches) {
 }
 
 fn recipe_list(pattern: Option<&str>) {
-    if let Some(recipes) = ladle::recipe_index(BASE_URL, pattern.unwrap_or("")) {
+    let answer = block_on(ladle::recipe_index(BASE_URL, pattern.unwrap_or("")));
+    if let Some(recipes) = answer {
         recipes
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -151,7 +154,7 @@ fn recipe_list(pattern: Option<&str>) {
 }
 
 fn recipe_show(_id: Option<&str>) {
-    if let Some(recipe) = ladle::recipe_get(BASE_URL, _id.unwrap()) {
+    if let Some(recipe) = block_on(ladle::recipe_get(BASE_URL, _id.unwrap())) {
         if let Ok(json) = serde_json::to_string(&recipe) {
             println!("{}", json);
         } else {
@@ -161,7 +164,7 @@ fn recipe_show(_id: Option<&str>) {
 }
 
 fn recipe_create(name: Option<&str>) {
-    ladle::recipe_create(BASE_URL, name.unwrap());
+    block_on(ladle::recipe_create(BASE_URL, name.unwrap()));
 }
 
 fn recipe_edit(
@@ -184,15 +187,15 @@ fn recipe_edit(
         params.insert("description", value);
     }
 
-    ladle::recipe_update(BASE_URL, id.unwrap(), params);
+    block_on(ladle::recipe_update(BASE_URL, id.unwrap(), params));
 }
 
 fn recipe_delete(id: Option<&str>) {
-    ladle::recipe_delete(BASE_URL, id.unwrap());
+    block_on(ladle::recipe_delete(BASE_URL, id.unwrap()));
 }
 
 fn ingredient_list(pattern: Option<&str>) {
-    if let Some(ingredients) = ladle::ingredient_index(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(ingredients) = block_on(ladle::ingredient_index(BASE_URL, pattern.unwrap_or(""))) {
         ingredients
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -201,7 +204,7 @@ fn ingredient_list(pattern: Option<&str>) {
 }
 
 fn ingredient_show(_id: Option<&str>) {
-    if let Some(ingredient) = ladle::ingredient_get(BASE_URL, _id.unwrap()) {
+    if let Some(ingredient) = block_on(ladle::ingredient_get(BASE_URL, _id.unwrap())) {
         if let Ok(json) = serde_json::to_string(&ingredient) {
             println!("{}", json);
         } else {
@@ -211,7 +214,7 @@ fn ingredient_show(_id: Option<&str>) {
 }
 
 fn ingredient_create(name: Option<&str>) {
-    ladle::ingredient_create(BASE_URL, name.unwrap());
+    block_on(ladle::ingredient_create(BASE_URL, name.unwrap()));
 }
 
 fn ingredient_edit(id: Option<&str>, name: Option<&str>) {
@@ -221,15 +224,15 @@ fn ingredient_edit(id: Option<&str>, name: Option<&str>) {
         params.insert("name", value);
     }
 
-    ladle::ingredient_update(BASE_URL, id.unwrap(), params);
+    block_on(ladle::ingredient_update(BASE_URL, id.unwrap(), params));
 }
 
 fn ingredient_delete(id: Option<&str>) {
-    ladle::ingredient_delete(BASE_URL, id.unwrap());
+    block_on(ladle::ingredient_delete(BASE_URL, id.unwrap()));
 }
 
 fn label_list(pattern: Option<&str>) {
-    if let Some(labels) = ladle::label_index(BASE_URL, pattern.unwrap_or("")) {
+    if let Some(labels) = block_on(ladle::label_index(BASE_URL, pattern.unwrap_or(""))) {
         labels
             .iter()
             .map(|x| println!("{}\t{}", x.id, x.name))
@@ -238,7 +241,7 @@ fn label_list(pattern: Option<&str>) {
 }
 
 fn label_show(_id: Option<&str>) {
-    if let Some(label) = ladle::label_get(BASE_URL, _id.unwrap()) {
+    if let Some(label) = block_on(ladle::label_get(BASE_URL, _id.unwrap())) {
         if let Ok(json) = serde_json::to_string(&label) {
             println!("{}", json);
         } else {
@@ -248,7 +251,7 @@ fn label_show(_id: Option<&str>) {
 }
 
 fn label_create(name: Option<&str>) {
-    ladle::label_create(BASE_URL, name.unwrap());
+    block_on(ladle::label_create(BASE_URL, name.unwrap()));
 }
 
 fn label_edit(id: Option<&str>, name: Option<&str>) {
@@ -258,9 +261,9 @@ fn label_edit(id: Option<&str>, name: Option<&str>) {
         params.insert("name", value);
     }
 
-    ladle::label_update(BASE_URL, id.unwrap(), params);
+    block_on(ladle::label_update(BASE_URL, id.unwrap(), params));
 }
 
 fn label_delete(id: Option<&str>) {
-    ladle::label_delete(BASE_URL, id.unwrap());
+    block_on(ladle::label_delete(BASE_URL, id.unwrap()));
 }
