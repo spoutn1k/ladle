@@ -159,253 +159,165 @@ async fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub async fn recipe_index(url: &str, pattern: &str) -> Option<Vec<models::Recipe>> {
+pub async fn recipe_index(url: &str, pattern: &str) -> Result<Vec<models::Recipe>, Box<dyn Error>> {
     let endpoint = format!("{}/recipes?name={}", url, pattern);
     let answer = get::<Vec<models::Recipe>>(&endpoint);
 
-    match answer.await {
-        Ok(recipes) => Some(recipes),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+    answer.await
 }
 
-pub async fn recipe_get(url: &str, id: &str) -> Option<models::Recipe> {
+pub async fn recipe_get(url: &str, id: &str) -> Result<models::Recipe, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}", url, id);
     let answer = get::<models::Recipe>(&endpoint);
 
-    match answer.await {
-        Ok(recipe) => Some(recipe),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+    answer.await
 }
 
-pub async fn recipe_create(url: &str, name: &str) -> Option<models::Recipe> {
+pub async fn recipe_create(url: &str, name: &str) -> Result<models::Recipe, Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", name);
     let endpoint = format!("{}/recipes/new", url);
     let answer = post::<models::Recipe>(&endpoint, params);
 
-    match answer.await {
-        Ok(recipe) => Some(recipe),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+    answer.await
 }
 
 pub async fn recipe_update(
     url: &str,
     id: &str,
     data: HashMap<&str, &str>,
-) -> Option<models::Recipe> {
+) -> Result<models::Recipe, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}", url, id);
     let answer = put::<models::Recipe>(&endpoint, data);
-    match answer.await {
-        Ok(recipe) => Some(recipe),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn recipe_delete(url: &str, id: &str) -> Option<()> {
+pub async fn recipe_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}", url, id);
     let answer = delete(&endpoint);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn recipe_link(url: &str, id: &str, required_id: &str) -> Option<()> {
+pub async fn recipe_link(url: &str, id: &str, required_id: &str) -> Result<(), Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("required_id", required_id);
     let endpoint = format!("{}/recipes/{}/dependencies/add", url, id);
     let answer = post(&endpoint, params);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Option<()> {
+pub async fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
     let answer = delete(&endpoint);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn recipe_tag(url: &str, id: &str, label_name: &str) -> Option<()> {
+pub async fn recipe_tag(url: &str, id: &str, label_name: &str) -> Result<(), Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", label_name);
     let endpoint = format!("{}/recipes/{}/tags/add", url, id);
     let answer = post(&endpoint, params);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn recipe_untag(url: &str, id: &str, label_id: &str) -> Option<()> {
+pub async fn recipe_untag(url: &str, id: &str, label_id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/tags/{}", url, id, label_id);
     let answer = delete(&endpoint);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn ingredient_index(url: &str, pattern: &str) -> Option<Vec<models::Ingredient>> {
+pub async fn ingredient_index(
+    url: &str,
+    pattern: &str,
+) -> Result<Vec<models::Ingredient>, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients?name={}", url, pattern);
     let answer = get::<Vec<models::Ingredient>>(&endpoint);
-    match answer.await {
-        Ok(ingredients) => Some(ingredients),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn ingredient_get(url: &str, id: &str) -> Option<models::Ingredient> {
+pub async fn ingredient_get(url: &str, id: &str) -> Result<models::Ingredient, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
     let answer = get::<models::Ingredient>(&endpoint);
-    match answer.await {
-        Ok(ingredient) => Some(ingredient),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn ingredient_create(url: &str, name: &str) -> Option<models::Ingredient> {
+pub async fn ingredient_create(
+    url: &str,
+    name: &str,
+) -> Result<models::Ingredient, Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
     let endpoint = format!("{}/ingredients/new", url);
     let answer = post::<models::Ingredient>(&endpoint, params);
-    match answer.await {
-        Ok(ingredient) => Some(ingredient),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
 pub async fn ingredient_update(
     url: &str,
     id: &str,
     data: HashMap<&str, &str>,
-) -> Option<models::Ingredient> {
+) -> Result<models::Ingredient, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
     let answer = put::<models::Ingredient>(&endpoint, data);
-    match answer.await {
-        Ok(ingredient) => Some(ingredient),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn ingredient_delete(url: &str, id: &str) -> Option<()> {
+pub async fn ingredient_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
     let answer = delete(&endpoint);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn label_index(url: &str, pattern: &str) -> Option<Vec<models::Label>> {
+pub async fn label_index(url: &str, pattern: &str) -> Result<Vec<models::Label>, Box<dyn Error>> {
     let endpoint = format!("{}/labels?name={}", url, pattern);
     let answer = get::<Vec<models::Label>>(&endpoint);
-    match answer.await {
-        Ok(labels) => Some(labels),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn label_get(url: &str, id: &str) -> Option<models::Label> {
+pub async fn label_get(url: &str, id: &str) -> Result<models::Label, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
     let answer = get::<models::Label>(&endpoint);
-    match answer.await {
-        Ok(label) => Some(label),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn label_create(url: &str, name: &str) -> Option<models::Label> {
+pub async fn label_create(url: &str, name: &str) -> Result<models::Label, Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
     let endpoint = format!("{}/labels/new", url);
     let answer = post::<models::Label>(&endpoint, params);
-    match answer.await {
-        Ok(label) => Some(label),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn label_update(url: &str, id: &str, data: HashMap<&str, &str>) -> Option<models::Label> {
+pub async fn label_update(
+    url: &str,
+    id: &str,
+    data: HashMap<&str, &str>,
+) -> Result<models::Label, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
     let answer = put::<models::Label>(&endpoint, data);
-    match answer.await {
-        Ok(label) => Some(label),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
 
-pub async fn label_delete(url: &str, id: &str) -> Option<()> {
+pub async fn label_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
     let answer = delete(&endpoint);
-    match answer.await {
-        Ok(()) => Some(()),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            None
-        }
-    }
+
+    answer.await
 }
