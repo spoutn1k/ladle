@@ -321,3 +321,46 @@ pub async fn label_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
 
     answer.await
 }
+
+pub async fn requirement_create(
+    url: &str,
+    recipe_id: &str,
+    ingredient_id: &str,
+    quantity: &str,
+) -> Result<(), Box<dyn Error>> {
+    let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
+    let mut params = HashMap::new();
+    params.insert("quantity", quantity);
+    params.insert("ingredient_id", ingredient_id);
+
+    post::<()>(&endpoint, params).await
+}
+
+pub async fn requirement_update(
+    url: &str,
+    recipe_id: &str,
+    ingredient_id: &str,
+    quantity: &str,
+) -> Result<(), Box<dyn Error>> {
+    let endpoint = format!(
+        "{}/recipes/{}/requirements/{}",
+        url, recipe_id, ingredient_id
+    );
+    let mut params = HashMap::new();
+    params.insert("quantity", quantity);
+
+    put::<()>(&endpoint, params).await
+}
+
+pub async fn requirement_delete(
+    url: &str,
+    recipe_id: &str,
+    ingredient_id: &str,
+) -> Result<(), Box<dyn Error>> {
+    let endpoint = format!(
+        "{}/recipes/{}/requirements/{}",
+        url, recipe_id, ingredient_id
+    );
+
+    delete(&endpoint).await
+}
