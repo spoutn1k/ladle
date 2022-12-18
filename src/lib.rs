@@ -364,3 +364,38 @@ pub async fn requirement_delete(
 
     delete(&endpoint).await
 }
+
+pub async fn requirement_create_from_ingredient_name(
+    url: &str,
+    recipe_id: &str,
+    ingredient: &str,
+    quantity: &str,
+) -> Result<(), Box<dyn Error>> {
+    let sanitized_name = unidecode::unidecode(ingredient.to_lowercase().as_str());
+    let endpoint = format!("{}/ingredients?name={}", url, sanitized_name.as_str());
+    let lookup = get::<Vec<models::Ingredient>>(&endpoint).await?;
+
+    let exact_matches = lookup
+        .iter()
+        .filter(|i| i.name == ingredient)
+        .collect::<Vec<&models::Ingredient>>();
+
+    let ingredient_id: String;
+
+    if exact_matches.len() == 1 {
+        ingredient_id = exact_matches.first().unwrap().id.clone();
+    } else {
+        let mut params = HashMap::new();
+        params.insert("name", ingredient);
+        let endpoint = format!("{}/ingredients/new", url);
+        let ingredient = post::<models::Ingredient>(&endpoint, params).await?;
+        ingredient_id = ingredient.id;
+    };
+
+    let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
+    let mut params = HashMap::new();
+    params.insert("quantity", quantity);
+    params.insert("ingredient_id", ingredient_id.as_str());
+
+    post::<()>(&endpoint, params).await
+}
