@@ -377,7 +377,7 @@ pub async fn requirement_create_from_ingredient_name(
 
     let exact_matches = lookup
         .iter()
-        .filter(|i| i.name == ingredient)
+        .filter(|i| unidecode::unidecode(i.name.to_lowercase().as_str()) == sanitized_name)
         .collect::<Vec<&models::Ingredient>>();
 
     let ingredient_id: String;
