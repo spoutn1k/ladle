@@ -1,5 +1,6 @@
 use futures::executor::block_on;
 use std::collections::HashMap;
+use std::error;
 #[macro_use]
 extern crate clap;
 
@@ -35,6 +36,26 @@ async fn main() {
             (@subcommand delete =>
                 (about: "delete a recipe")
                 (@arg id: +required "target recipe id")
+            )
+            (@subcommand requirement =>
+                (about: "edit recipe requirements")
+                (@subcommand create =>
+                    (about: "add a requirement to a recipe")
+                    (@arg id: +required "target recipe id")
+                    (@arg ingredient_id: +required "required ingredient id")
+                    (@arg quantity: +required "required quantity")
+                )
+                (@subcommand update =>
+                    (about: "update a requirement to a recipe")
+                    (@arg id: +required "target recipe id")
+                    (@arg ingredient_id: +required "required ingredient id")
+                    (@arg quantity: +required "required quantity")
+                )
+                (@subcommand delete =>
+                    (about: "delete a requirement from a recipe")
+                    (@arg id: +required "target recipe id")
+                    (@arg ingredient_id: +required "required ingredient id")
+                )
             )
         )
         (@subcommand ingredient =>
@@ -88,18 +109,22 @@ async fn main() {
     )
     .get_matches();
 
-    // Same as before...
-    match matches.subcommand() {
+    let exec = match matches.subcommand() {
         ("recipe", Some(sub_m)) => recipe_actions(&sub_m),
         ("ingredient", Some(sub_m)) => ingredient_actions(&sub_m),
         ("label", Some(sub_m)) => label_actions(&sub_m),
         _ => {
-            println!("{}", matches.usage())
+            println!("{}", matches.usage());
+            Ok(())
         }
+    };
+
+    if let Err(message) = exec {
+        eprintln!("{}", message);
     }
 }
 
-fn recipe_actions(matches: &clap::ArgMatches) {
+fn recipe_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
         ("list", Some(sub_m)) => recipe_list(sub_m.value_of("pattern")),
         ("show", Some(sub_m)) => recipe_show(sub_m.value_of("id")),
@@ -111,13 +136,30 @@ fn recipe_actions(matches: &clap::ArgMatches) {
             sub_m.value_of("description"),
         ),
         ("delete", Some(sub_m)) => recipe_delete(sub_m.value_of("id")),
+        ("requirement", Some(sub_m)) => match sub_m.subcommand() {
+            ("create", Some(sub_m)) => requirement_add(
+                sub_m.value_of("id"),
+                sub_m.value_of("ingredient_id"),
+                sub_m.value_of("quantity"),
+            ),
+            ("update", Some(sub_m)) => requirement_update(
+                sub_m.value_of("id"),
+                sub_m.value_of("ingredient_id"),
+                sub_m.value_of("quantity"),
+            ),
+            ("delete", Some(sub_m)) => {
+                requirement_delete(sub_m.value_of("id"), sub_m.value_of("ingredient_id"))
+            }
+            (&_, _) => todo!(),
+        },
         _ => {
-            println!("{}", matches.usage())
+            println!("{}", matches.usage());
+            Ok(())
         }
     }
 }
 
-fn ingredient_actions(matches: &clap::ArgMatches) {
+fn ingredient_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
         ("list", Some(sub_m)) => ingredient_list(sub_m.value_of("pattern")),
         ("show", Some(sub_m)) => ingredient_show(sub_m.value_of("id")),
@@ -125,12 +167,13 @@ fn ingredient_actions(matches: &clap::ArgMatches) {
         ("edit", Some(sub_m)) => ingredient_edit(sub_m.value_of("id"), sub_m.value_of("name")),
         ("delete", Some(sub_m)) => ingredient_delete(sub_m.value_of("id")),
         _ => {
-            println!("{}", matches.usage())
+            println!("{}", matches.usage());
+            Ok(())
         }
     }
 }
 
-fn label_actions(matches: &clap::ArgMatches) {
+fn label_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
         ("list", Some(sub_m)) => label_list(sub_m.value_of("pattern")),
         ("show", Some(sub_m)) => label_show(sub_m.value_of("id")),
@@ -138,33 +181,31 @@ fn label_actions(matches: &clap::ArgMatches) {
         ("edit", Some(sub_m)) => label_edit(sub_m.value_of("id"), sub_m.value_of("name")),
         ("delete", Some(sub_m)) => label_delete(sub_m.value_of("id")),
         _ => {
-            println!("{}", matches.usage())
+            println!("{}", matches.usage());
+            Ok(())
         }
     }
 }
 
-fn recipe_list(pattern: Option<&str>) {
-    let answer = block_on(ladle::recipe_index(BASE_URL, pattern.unwrap_or("")));
-    if let Some(recipes) = answer {
-        recipes
-            .iter()
-            .map(|x| println!("{}\t{}", x.id, x.name))
-            .for_each(drop);
-    }
+fn recipe_list(pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    let recipes = block_on(ladle::recipe_index(BASE_URL, pattern.unwrap_or("")))?;
+    recipes
+        .iter()
+        .map(|x| println!("{}\t{}", x.id, x.name))
+        .for_each(drop);
+
+    Ok(())
 }
 
-fn recipe_show(_id: Option<&str>) {
-    if let Some(recipe) = block_on(ladle::recipe_get(BASE_URL, _id.unwrap())) {
-        if let Ok(json) = serde_json::to_string(&recipe) {
-            println!("{}", json);
-        } else {
-            eprintln!("Failure serializing recipe: {:?}", recipe);
-        }
-    }
+fn recipe_show(_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    let recipe = block_on(ladle::recipe_get(BASE_URL, _id.unwrap()))?;
+    println!("{}", serde_json::to_string(&recipe)?);
+    Ok(())
 }
 
-fn recipe_create(name: Option<&str>) {
-    block_on(ladle::recipe_create(BASE_URL, name.unwrap()));
+fn recipe_create(name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::recipe_create(BASE_URL, name.unwrap()))?;
+    Ok(())
 }
 
 fn recipe_edit(
@@ -172,7 +213,7 @@ fn recipe_edit(
     name: Option<&str>,
     author: Option<&str>,
     description: Option<&str>,
-) {
+) -> Result<(), Box<dyn error::Error>> {
     let mut params = HashMap::new();
 
     if let Some(value) = name {
@@ -187,83 +228,123 @@ fn recipe_edit(
         params.insert("description", value);
     }
 
-    block_on(ladle::recipe_update(BASE_URL, id.unwrap(), params));
+    block_on(ladle::recipe_update(BASE_URL, id.unwrap(), params))?;
+
+    Ok(())
 }
 
-fn recipe_delete(id: Option<&str>) {
-    block_on(ladle::recipe_delete(BASE_URL, id.unwrap()));
+fn recipe_delete(id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::recipe_delete(BASE_URL, id.unwrap()))?;
+    Ok(())
 }
 
-fn ingredient_list(pattern: Option<&str>) {
-    if let Some(ingredients) = block_on(ladle::ingredient_index(BASE_URL, pattern.unwrap_or(""))) {
-        ingredients
-            .iter()
-            .map(|x| println!("{}\t{}", x.id, x.name))
-            .for_each(drop);
-    }
+fn ingredient_list(pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    let ingredients = block_on(ladle::ingredient_index(BASE_URL, pattern.unwrap_or("")))?;
+    ingredients
+        .iter()
+        .map(|x| println!("{}\t{}", x.id, x.name))
+        .for_each(drop);
+    Ok(())
 }
 
-fn ingredient_show(_id: Option<&str>) {
-    if let Some(ingredient) = block_on(ladle::ingredient_get(BASE_URL, _id.unwrap())) {
-        if let Ok(json) = serde_json::to_string(&ingredient) {
-            println!("{}", json);
-        } else {
-            eprintln!("Failure serializing ingredient: {:?}", ingredient);
-        }
-    }
+fn ingredient_show(_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    let ingredient = block_on(ladle::ingredient_get(BASE_URL, _id.unwrap()))?;
+    println!("{}", serde_json::to_string(&ingredient)?);
+    Ok(())
 }
 
-fn ingredient_create(name: Option<&str>) {
-    block_on(ladle::ingredient_create(BASE_URL, name.unwrap()));
+fn ingredient_create(name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::ingredient_create(BASE_URL, name.unwrap()))?;
+    Ok(())
 }
 
-fn ingredient_edit(id: Option<&str>, name: Option<&str>) {
+fn ingredient_edit(id: Option<&str>, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let mut params = HashMap::new();
 
     if let Some(value) = name {
         params.insert("name", value);
     }
 
-    block_on(ladle::ingredient_update(BASE_URL, id.unwrap(), params));
+    block_on(ladle::ingredient_update(BASE_URL, id.unwrap(), params))?;
+    Ok(())
 }
 
-fn ingredient_delete(id: Option<&str>) {
-    block_on(ladle::ingredient_delete(BASE_URL, id.unwrap()));
+fn ingredient_delete(id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::ingredient_delete(BASE_URL, id.unwrap()))?;
+    Ok(())
 }
 
-fn label_list(pattern: Option<&str>) {
-    if let Some(labels) = block_on(ladle::label_index(BASE_URL, pattern.unwrap_or(""))) {
-        labels
-            .iter()
-            .map(|x| println!("{}\t{}", x.id, x.name))
-            .for_each(drop);
-    }
+fn label_list(pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::label_index(BASE_URL, pattern.unwrap_or("")))?
+        .iter()
+        .map(|x| println!("{}\t{}", x.id, x.name))
+        .for_each(drop);
+    Ok(())
 }
 
-fn label_show(_id: Option<&str>) {
-    if let Some(label) = block_on(ladle::label_get(BASE_URL, _id.unwrap())) {
-        if let Ok(json) = serde_json::to_string(&label) {
-            println!("{}", json);
-        } else {
-            eprintln!("Failure serializing label: {:?}", label);
-        }
-    }
+fn label_show(_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    let label = block_on(ladle::label_get(BASE_URL, _id.unwrap()))?;
+    println!("{}", serde_json::to_string(&label)?);
+    Ok(())
 }
 
-fn label_create(name: Option<&str>) {
-    block_on(ladle::label_create(BASE_URL, name.unwrap()));
+fn label_create(name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::label_create(BASE_URL, name.unwrap()))?;
+    Ok(())
 }
 
-fn label_edit(id: Option<&str>, name: Option<&str>) {
+fn label_edit(id: Option<&str>, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let mut params = HashMap::new();
 
     if let Some(value) = name {
         params.insert("name", value);
     }
 
-    block_on(ladle::label_update(BASE_URL, id.unwrap(), params));
+    block_on(ladle::label_update(BASE_URL, id.unwrap(), params))?;
+    Ok(())
 }
 
-fn label_delete(id: Option<&str>) {
-    block_on(ladle::label_delete(BASE_URL, id.unwrap()));
+fn label_delete(id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::label_delete(BASE_URL, id.unwrap()))?;
+    Ok(())
+}
+
+fn requirement_add(
+    id: Option<&str>,
+    ingredient: Option<&str>,
+    quantity: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::requirement_create_from_ingredient_name(
+        BASE_URL,
+        id.unwrap(),
+        ingredient.unwrap(),
+        quantity.unwrap(),
+    ))?;
+    Ok(())
+}
+
+fn requirement_update(
+    id: Option<&str>,
+    ingredient_id: Option<&str>,
+    quantity: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::requirement_update(
+        BASE_URL,
+        id.unwrap(),
+        ingredient_id.unwrap(),
+        quantity.unwrap(),
+    ))?;
+    Ok(())
+}
+
+fn requirement_delete(
+    id: Option<&str>,
+    ingredient_id: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::requirement_delete(
+        BASE_URL,
+        id.unwrap(),
+        ingredient_id.unwrap(),
+    ))?;
+    Ok(())
 }
