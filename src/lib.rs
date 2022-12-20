@@ -1,4 +1,5 @@
 use reqwest::Client;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
@@ -8,7 +9,7 @@ pub mod models {
     use serde::Deserialize;
     use serde::Serialize;
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Label {
         pub id: String,
         pub name: String,
@@ -17,25 +18,25 @@ pub mod models {
         pub tagged_recipes: Vec<Recipe>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Ingredient {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Requirement {
         pub ingredient: Ingredient,
         pub quantity: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Dependency {
         pub id: String,
         pub name: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Recipe {
         pub id: String,
         pub name: String,
@@ -110,7 +111,7 @@ async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn
     }
 }
 
-async fn post<'a, T: serde::de::DeserializeOwned>(
+async fn post<'a, T: serde::de::DeserializeOwned + Any + Default>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
@@ -128,14 +129,20 @@ async fn post<'a, T: serde::de::DeserializeOwned>(
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(LadleError(String::from(
-            "Failed to interpret the server's response",
-        )))),
+        (true, None) => {
+            if TypeId::of::<T>() == TypeId::of::<()>() {
+                Ok(T::default())
+            } else {
+                Err(Box::new(LadleError(String::from(
+                    "Failed to interpret the server's response",
+                ))))
+            }
+        }
         _ => Err(Box::new(KnifeError(response.error))),
     }
 }
 
-async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
+async fn put<'a, T: serde::de::DeserializeOwned + Any + Default>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
@@ -153,9 +160,15 @@ async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(LadleError(String::from(
-            "Failed to interpret the server's response",
-        )))),
+        (true, None) => {
+            if TypeId::of::<T>() == TypeId::of::<()>() {
+                Ok(T::default())
+            } else {
+                Err(Box::new(LadleError(String::from(
+                    "Failed to interpret the server's response",
+                ))))
+            }
+        }
         _ => Err(Box::new(KnifeError(response.error))),
     }
 }
