@@ -1,4 +1,6 @@
 use futures::executor::block_on;
+use log::LevelFilter;
+use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::error;
 #[macro_use]
@@ -12,6 +14,7 @@ async fn main() {
         (version: "0.1")
         (author: "JBS <jb.skutnik@gmail.com>")
         (about: "Get data from a knife server")
+        (@arg verbose: -v --verbose "Enable debug log")
         (@subcommand recipe =>
             (about: "access recipes")
             (@subcommand list =>
@@ -108,6 +111,14 @@ async fn main() {
         )
     )
     .get_matches();
+
+    if matches.is_present("verbose") {
+        SimpleLogger::new()
+            .with_level(LevelFilter::Off)
+            .with_module_level("ladle", LevelFilter::Debug)
+            .init()
+            .unwrap();
+    }
 
     let exec = match matches.subcommand() {
         ("recipe", Some(sub_m)) => recipe_actions(&sub_m),

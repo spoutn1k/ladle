@@ -78,8 +78,21 @@ impl fmt::Display for KnifeError {
 
 impl Error for KnifeError {}
 
+#[derive(Debug)]
+struct LadleError(String);
+
+impl fmt::Display for LadleError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Internal error: {}", self.0)
+    }
+}
+
+impl Error for LadleError {}
+
 async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
+
+    log::debug!("GET {}", url);
 
     let response = client
         .get(url)
@@ -90,8 +103,8 @@ async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(KnifeError(String::from(
-            "Internal error. This should not happen.",
+        (true, None) => Err(Box::new(LadleError(String::from(
+            "Failed to interpret the server's response",
         )))),
         _ => Err(Box::new(KnifeError(response.error))),
     }
@@ -103,6 +116,8 @@ async fn post<'a, T: serde::de::DeserializeOwned>(
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
+    log::debug!("POST {} {:?}", url, params);
+
     let response = client
         .post(url)
         .form(&params)
@@ -113,8 +128,8 @@ async fn post<'a, T: serde::de::DeserializeOwned>(
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(KnifeError(String::from(
-            "Internal error. This should not happen.",
+        (true, None) => Err(Box::new(LadleError(String::from(
+            "Failed to interpret the server's response",
         )))),
         _ => Err(Box::new(KnifeError(response.error))),
     }
@@ -126,6 +141,8 @@ async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
+    log::debug!("PUT {} {:?}", url, params);
+
     let response = client
         .put(url)
         .form(&params)
@@ -136,8 +153,8 @@ async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
 
     match (response.accept, response.data) {
         (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(KnifeError(String::from(
-            "Internal error. This should not happen.",
+        (true, None) => Err(Box::new(LadleError(String::from(
+            "Failed to interpret the server's response",
         )))),
         _ => Err(Box::new(KnifeError(response.error))),
     }
@@ -145,6 +162,8 @@ async fn put<'a, T: serde::de::DeserializeOwned + fmt::Debug>(
 
 async fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     let client = Client::new();
+
+    log::debug!("DELETE {}", url);
 
     let response = client
         .delete(url)
@@ -381,6 +400,14 @@ pub async fn requirement_create_from_ingredient_name(
         .collect::<Vec<&models::Ingredient>>();
 
     let ingredient_id: String;
+    log::debug!(
+        "Comparing {} to {:?}",
+        ingredient,
+        lookup
+            .iter()
+            .map(|i| i.name.as_str())
+            .collect::<Vec<&str>>()
+    );
 
     if exact_matches.len() == 1 {
         ingredient_id = exact_matches.first().unwrap().id.clone();
