@@ -234,7 +234,7 @@ pub async fn recipe_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
 
 pub async fn recipe_link(url: &str, id: &str, required_id: &str) -> Result<(), Box<dyn Error>> {
     let mut params = HashMap::new();
-    params.insert("required_id", required_id);
+    params.insert("requisite", required_id);
     let endpoint = format!("{}/recipes/{}/dependencies/add", url, id);
     let answer = post(&endpoint, params);
 

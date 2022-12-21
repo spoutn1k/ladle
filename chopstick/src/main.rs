@@ -60,6 +60,14 @@ async fn main() {
                     (@arg ingredient_id: +required "required ingredient id")
                 )
             )
+            (@subcommand dependency =>
+                (about: "edit recipe dependencies")
+                (@subcommand add =>
+                    (about: "add a dependency to a recipe")
+                    (@arg id: +required "target recipe id")
+                    (@arg required_id: +required "required recipe id")
+                )
+            )
         )
         (@subcommand ingredient =>
             (about: "Ingredients-related commands")
@@ -160,6 +168,12 @@ fn recipe_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::Error
             ),
             ("delete", Some(sub_m)) => {
                 requirement_delete(sub_m.value_of("id"), sub_m.value_of("ingredient_id"))
+            }
+            (&_, _) => todo!(),
+        },
+        ("dependency", Some(sub_m)) => match sub_m.subcommand() {
+            ("add", Some(sub_m)) => {
+                recipe_link(sub_m.value_of("id"), sub_m.value_of("required_id"))
             }
             (&_, _) => todo!(),
         },
@@ -356,6 +370,15 @@ fn requirement_delete(
         BASE_URL,
         id.unwrap(),
         ingredient_id.unwrap(),
+    ))?;
+    Ok(())
+}
+
+fn recipe_link(id: Option<&str>, required_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::recipe_link(
+        BASE_URL,
+        id.unwrap(),
+        required_id.unwrap(),
     ))?;
     Ok(())
 }
