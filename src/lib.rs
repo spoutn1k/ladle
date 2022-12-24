@@ -10,12 +10,25 @@ pub mod models {
     use serde::Serialize;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+    pub struct RecipeIndex {
+        pub id: String,
+        pub name: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+    pub struct LabelIndex {
+        pub tagged_recipes: Vec<RecipeIndex>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+    pub struct IngredientIndex {
+        pub used_in: Vec<RecipeIndex>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
     pub struct Label {
         pub id: String,
         pub name: String,
-
-        #[serde(default)]
-        pub tagged_recipes: Vec<Recipe>,
     }
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
@@ -191,9 +204,12 @@ async fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub async fn recipe_index(url: &str, pattern: &str) -> Result<Vec<models::Recipe>, Box<dyn Error>> {
+pub async fn recipe_index(
+    url: &str,
+    pattern: &str,
+) -> Result<Vec<models::RecipeIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/recipes?name={}", url, pattern);
-    let answer = get::<Vec<models::Recipe>>(&endpoint);
+    let answer = get::<Vec<models::RecipeIndex>>(&endpoint);
 
     answer.await
 }
@@ -264,6 +280,16 @@ pub async fn recipe_untag(url: &str, id: &str, label_id: &str) -> Result<(), Box
     answer.await
 }
 
+pub async fn recipe_get_requirements(
+    url: &str,
+    id: &str,
+) -> Result<Vec<models::Requirement>, Box<dyn Error>> {
+    let endpoint = format!("{}/recipes/{}/requirements", url, id);
+    let answer = get::<Vec<models::Requirement>>(&endpoint);
+
+    answer.await
+}
+
 pub async fn ingredient_index(
     url: &str,
     pattern: &str,
@@ -274,9 +300,12 @@ pub async fn ingredient_index(
     answer.await
 }
 
-pub async fn ingredient_get(url: &str, id: &str) -> Result<models::Ingredient, Box<dyn Error>> {
+pub async fn ingredient_get(
+    url: &str,
+    id: &str,
+) -> Result<models::IngredientIndex, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = get::<models::Ingredient>(&endpoint);
+    let answer = get::<models::IngredientIndex>(&endpoint);
 
     answer.await
 }
@@ -298,9 +327,9 @@ pub async fn ingredient_update(
     url: &str,
     id: &str,
     data: HashMap<&str, &str>,
-) -> Result<models::Ingredient, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = put::<models::Ingredient>(&endpoint, data);
+    let answer = put::<()>(&endpoint, data);
 
     answer.await
 }
@@ -319,9 +348,9 @@ pub async fn label_index(url: &str, pattern: &str) -> Result<Vec<models::Label>,
     answer.await
 }
 
-pub async fn label_get(url: &str, id: &str) -> Result<models::Label, Box<dyn Error>> {
+pub async fn label_get(url: &str, id: &str) -> Result<models::LabelIndex, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = get::<models::Label>(&endpoint);
+    let answer = get::<models::LabelIndex>(&endpoint);
 
     answer.await
 }
