@@ -4,82 +4,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
-pub mod models {
-
-    use serde::Deserialize;
-    use serde::Serialize;
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct RecipeIndex {
-        pub id: String,
-        pub name: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct LabelIndex {
-        pub tagged_recipes: Vec<RecipeIndex>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct IngredientIndex {
-        pub used_in: Vec<RecipeIndex>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct Label {
-        pub id: String,
-        pub name: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct Ingredient {
-        pub id: String,
-        pub name: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct Requirement {
-        pub ingredient: Ingredient,
-        pub quantity: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct Dependency {
-        pub id: String,
-        pub name: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-    pub struct Recipe {
-        pub id: String,
-        pub name: String,
-
-        #[serde(default)]
-        pub author: String,
-
-        #[serde(default)]
-        pub directions: String,
-
-        #[serde(default)]
-        pub requirements: Vec<Requirement>,
-
-        #[serde(default)]
-        pub dependencies: Vec<Dependency>,
-
-        #[serde(default)]
-        pub tags: Vec<Label>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    pub struct Answer<T> {
-        pub accept: bool,
-
-        #[serde(default)]
-        pub error: String,
-
-        pub data: Option<T>,
-    }
-}
+pub mod models;
 
 #[derive(Debug)]
 struct KnifeError(String);
@@ -293,19 +218,16 @@ pub async fn recipe_get_requirements(
 pub async fn ingredient_index(
     url: &str,
     pattern: &str,
-) -> Result<Vec<models::Ingredient>, Box<dyn Error>> {
+) -> Result<Vec<models::IngredientIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients?name={}", url, pattern);
-    let answer = get::<Vec<models::Ingredient>>(&endpoint);
+    let answer = get::<Vec<models::IngredientIndex>>(&endpoint);
 
     answer.await
 }
 
-pub async fn ingredient_get(
-    url: &str,
-    id: &str,
-) -> Result<models::IngredientIndex, Box<dyn Error>> {
+pub async fn ingredient_get(url: &str, id: &str) -> Result<models::Ingredient, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = get::<models::IngredientIndex>(&endpoint);
+    let answer = get::<models::Ingredient>(&endpoint);
 
     answer.await
 }
@@ -313,12 +235,12 @@ pub async fn ingredient_get(
 pub async fn ingredient_create(
     url: &str,
     name: &str,
-) -> Result<models::Ingredient, Box<dyn Error>> {
+) -> Result<models::IngredientIndex, Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
     let endpoint = format!("{}/ingredients/new", url);
-    let answer = post::<models::Ingredient>(&endpoint, params);
+    let answer = post(&endpoint, params);
 
     answer.await
 }
@@ -329,7 +251,7 @@ pub async fn ingredient_update(
     data: HashMap<&str, &str>,
 ) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = put::<()>(&endpoint, data);
+    let answer = put(&endpoint, data);
 
     answer.await
 }
@@ -341,26 +263,29 @@ pub async fn ingredient_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>
     answer.await
 }
 
-pub async fn label_index(url: &str, pattern: &str) -> Result<Vec<models::Label>, Box<dyn Error>> {
+pub async fn label_index(
+    url: &str,
+    pattern: &str,
+) -> Result<Vec<models::LabelIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/labels?name={}", url, pattern);
-    let answer = get::<Vec<models::Label>>(&endpoint);
+    let answer = get(&endpoint);
 
     answer.await
 }
 
-pub async fn label_get(url: &str, id: &str) -> Result<models::LabelIndex, Box<dyn Error>> {
+pub async fn label_get(url: &str, id: &str) -> Result<models::Label, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = get::<models::LabelIndex>(&endpoint);
+    let answer = get(&endpoint);
 
     answer.await
 }
 
-pub async fn label_create(url: &str, name: &str) -> Result<models::Label, Box<dyn Error>> {
+pub async fn label_create(url: &str, name: &str) -> Result<models::LabelIndex, Box<dyn Error>> {
     let mut params = HashMap::new();
     params.insert("name", name);
 
     let endpoint = format!("{}/labels/new", url);
-    let answer = post::<models::Label>(&endpoint, params);
+    let answer = post(&endpoint, params);
 
     answer.await
 }
@@ -369,9 +294,9 @@ pub async fn label_update(
     url: &str,
     id: &str,
     data: HashMap<&str, &str>,
-) -> Result<models::Label, Box<dyn Error>> {
+) -> Result<models::LabelIndex, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = put::<models::Label>(&endpoint, data);
+    let answer = put(&endpoint, data);
 
     answer.await
 }
@@ -394,7 +319,7 @@ pub async fn requirement_create(
     params.insert("quantity", quantity);
     params.insert("ingredient_id", ingredient_id);
 
-    post::<()>(&endpoint, params).await
+    post(&endpoint, params).await
 }
 
 pub async fn requirement_update(
@@ -410,7 +335,7 @@ pub async fn requirement_update(
     let mut params = HashMap::new();
     params.insert("quantity", quantity);
 
-    put::<()>(&endpoint, params).await
+    put(&endpoint, params).await
 }
 
 pub async fn requirement_delete(
@@ -457,7 +382,7 @@ pub async fn requirement_create_from_ingredient_name(
         let mut params = HashMap::new();
         params.insert("name", ingredient);
         let endpoint = format!("{}/ingredients/new", url);
-        let ingredient = post::<models::Ingredient>(&endpoint, params).await?;
+        let ingredient = post::<models::IngredientIndex>(&endpoint, params).await?;
         ingredient_id = ingredient.id;
     };
 
@@ -466,5 +391,5 @@ pub async fn requirement_create_from_ingredient_name(
     params.insert("quantity", quantity);
     params.insert("ingredient_id", ingredient_id.as_str());
 
-    post::<()>(&endpoint, params).await
+    post(&endpoint, params).await
 }

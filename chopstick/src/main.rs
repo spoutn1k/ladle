@@ -282,8 +282,11 @@ fn ingredient_list(pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
 }
 
 fn ingredient_show(_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let ladle::models::IngredientIndex { used_in } =
-        block_on(ladle::ingredient_get(BASE_URL, _id.unwrap()))?;
+    let ladle::models::Ingredient {
+        id: _,
+        name: _,
+        used_in,
+    } = block_on(ladle::ingredient_get(BASE_URL, _id.unwrap()))?;
     used_in
         .iter()
         .map(|r| println!("{}\t{}", r.id, r.name))
@@ -321,8 +324,11 @@ fn label_list(pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
 }
 
 fn label_show(_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let ladle::models::LabelIndex { tagged_recipes } =
-        block_on(ladle::label_get(BASE_URL, _id.unwrap()))?;
+    let ladle::models::Label {
+        id: _,
+        name: _,
+        tagged_recipes,
+    } = block_on(ladle::label_get(BASE_URL, _id.unwrap()))?;
     tagged_recipes
         .iter()
         .map(|r| {
