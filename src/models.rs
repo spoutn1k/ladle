@@ -1,30 +1,31 @@
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 /// Element of a recipe listing
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct RecipeIndex {
     pub id: String,
     pub name: String,
 }
 
 /// Element of an ingredient listing
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct IngredientIndex {
     pub id: String,
     pub name: String,
 }
 
 /// Element of a label listing
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct LabelIndex {
     pub id: String,
     pub name: String,
 }
 
 /// Label metadata
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Label {
     pub id: String,
     pub name: String,
@@ -35,7 +36,7 @@ pub struct Label {
 }
 
 /// Ingredient metadata
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Ingredient {
     pub id: String,
     pub name: String,
@@ -45,14 +46,14 @@ pub struct Ingredient {
 }
 
 /// Requirement metadata
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Requirement {
     pub ingredient: IngredientIndex,
     pub quantity: String,
 }
 
 /// Recipe metadata
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Recipe {
     pub id: String,
     pub name: String,
@@ -65,7 +66,7 @@ pub struct Recipe {
 
     /// List of requirements. Contains ingredient indexes
     #[serde(default)]
-    pub requirements: Vec<Requirement>,
+    pub requirements: HashSet<Requirement>,
 
     /// List of dependencies. Contains recipe indexes
     #[serde(default)]
@@ -73,7 +74,7 @@ pub struct Recipe {
 
     /// List of tags. Contains label indexes
     #[serde(default)]
-    pub tags: Vec<LabelIndex>,
+    pub tags: HashSet<LabelIndex>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,11 +93,27 @@ impl Hash for LabelIndex {
     }
 }
 
+impl PartialEq for LabelIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for LabelIndex {}
+
 impl Hash for Label {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
+
+impl PartialEq for Label {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Label {}
 
 impl Hash for IngredientIndex {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -104,11 +121,27 @@ impl Hash for IngredientIndex {
     }
 }
 
+impl PartialEq for IngredientIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for IngredientIndex {}
+
 impl Hash for Ingredient {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
+
+impl PartialEq for Ingredient {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Ingredient {}
 
 impl Hash for RecipeIndex {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -116,8 +149,38 @@ impl Hash for RecipeIndex {
     }
 }
 
+impl PartialEq for RecipeIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for RecipeIndex {}
+
 impl Hash for Recipe {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
+
+impl PartialEq for Recipe {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Recipe {}
+
+impl Hash for Requirement {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ingredient.hash(state);
+    }
+}
+
+impl PartialEq for Requirement {
+    fn eq(&self, other: &Self) -> bool {
+        self.ingredient == other.ingredient
+    }
+}
+
+impl Eq for Requirement {}
