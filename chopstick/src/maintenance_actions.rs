@@ -35,7 +35,7 @@ async fn gen_ingredient_table<'a>(
                 .insert(&ingredients_indexes[index].id, ingredient.id.to_owned())
                 .unwrap_or_default(),
             Err(message) => {
-                eprintln!("{}", message);
+                log::error!("{}", message);
                 String::default()
             }
         };
@@ -114,7 +114,7 @@ async fn recipe_clone(
         .iter()
         .map(|response| {
             if let Err(message) = response {
-                eprintln!("{:?}", message)
+                log::error!("{:?}", message)
             }
         })
         .for_each(drop);
@@ -135,7 +135,7 @@ async fn recipe_clone(
         .iter()
         .map(|response| {
             if let Err(message) = response {
-                eprintln!("{:?}", message)
+                log::error!("{:?}", message)
             }
         })
         .for_each(drop);
@@ -157,7 +157,7 @@ async fn recipe_clone(
         .iter()
         .map(|response| {
             if let Err(message) = response {
-                eprintln!("{:?}", message)
+                log::error!("{:?}", message)
             }
         })
         .for_each(drop);
@@ -181,7 +181,7 @@ async fn clone(remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
         .filter_map(|response| match response {
             Ok(recipe) => Some(recipe.to_owned()),
             Err(message) => {
-                eprintln!("{}", message);
+                log::error!("{}", message);
                 None
             }
         })

@@ -137,8 +137,13 @@ async fn main() {
 
     if matches.is_present("verbose") {
         SimpleLogger::new()
-            .with_level(LevelFilter::Off)
+            .with_level(LevelFilter::Info)
             .with_module_level("ladle", LevelFilter::Debug)
+            .init()
+            .unwrap();
+    } else {
+        SimpleLogger::new()
+            .with_level(LevelFilter::Info)
             .init()
             .unwrap();
     }
@@ -155,6 +160,6 @@ async fn main() {
     };
 
     if let Err(message) = exec {
-        eprintln!("{}", message);
+        log::error!("{}", message);
     }
 }
