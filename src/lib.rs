@@ -146,9 +146,10 @@ pub async fn recipe_get(url: &str, id: &str) -> Result<models::Recipe, Box<dyn E
     answer.await
 }
 
-pub async fn recipe_create(url: &str, name: &str) -> Result<models::Recipe, Box<dyn Error>> {
-    let mut params = HashMap::new();
-    params.insert("name", name);
+pub async fn recipe_create(
+    url: &str,
+    params: HashMap<&str, &str>,
+) -> Result<models::Recipe, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/new", url);
     let answer = post::<models::Recipe>(&endpoint, params);
 
