@@ -35,6 +35,9 @@ pub fn recipe_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::E
             ("add", Some(sub_m)) => {
                 recipe_link(sub_m.value_of("id"), sub_m.value_of("required_id"))
             }
+            ("delete", Some(sub_m)) => {
+                recipe_unlink(sub_m.value_of("id"), sub_m.value_of("required_id"))
+            }
             (&_, _) => todo!(),
         },
         _ => {
@@ -138,6 +141,15 @@ fn requirement_delete(
 
 fn recipe_link(id: Option<&str>, required_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     block_on(ladle::recipe_link(
+        BASE_URL,
+        id.unwrap(),
+        required_id.unwrap(),
+    ))?;
+    Ok(())
+}
+
+fn recipe_unlink(id: Option<&str>, required_id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    block_on(ladle::recipe_unlink(
         BASE_URL,
         id.unwrap(),
         required_id.unwrap(),
