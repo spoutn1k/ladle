@@ -9,8 +9,6 @@ use simple_logger::SimpleLogger;
 #[macro_use]
 extern crate clap;
 
-static BASE_URL: &str = "http://localhost:8000";
-
 #[tokio::main]
 async fn main() {
     let matches = clap_app!(Chopstick =>
@@ -18,6 +16,7 @@ async fn main() {
         (author: "JBS <jb.skutnik@gmail.com>")
         (about: "Get data from a knife server")
         (@arg verbose: -v --verbose "Enable debug log")
+        (@arg server: -s --server +takes_value "Remote knife server URL")
         (@subcommand remote =>
             (about: "maintenance")
             (@subcommand clone =>
@@ -148,11 +147,16 @@ async fn main() {
             .unwrap();
     }
 
+    let mut origin: &str = "";
+    if let Some(server) = matches.value_of("server") {
+        origin = server;
+    }
+
     let exec = match matches.subcommand() {
-        ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(&sub_m),
-        ("ingredient", Some(sub_m)) => ingredient_actions::ingredient_actions(&sub_m),
-        ("label", Some(sub_m)) => label_actions::label_actions(&sub_m),
-        ("remote", Some(sub_m)) => maintenance_actions::maintenance_actions(&sub_m),
+        ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(origin, &sub_m),
+        ("ingredient", Some(sub_m)) => ingredient_actions::ingredient_actions(origin, &sub_m),
+        ("label", Some(sub_m)) => label_actions::label_actions(origin, &sub_m),
+        ("remote", Some(sub_m)) => maintenance_actions::maintenance_actions(origin, &sub_m),
         _ => {
             println!("{}", matches.usage());
             Ok(())

@@ -1,13 +1,15 @@
-use crate::BASE_URL;
 use futures::executor::block_on;
 use futures::future::join_all;
 use ladle::models::{IngredientIndex, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
-pub fn maintenance_actions(matches: &clap::ArgMatches) -> Result<(), Box<dyn error::Error>> {
+pub fn maintenance_actions(
+    origin: &str,
+    matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
-        ("clone", Some(sub_m)) => block_on(clone(sub_m.value_of("remote"))),
+        ("clone", Some(sub_m)) => block_on(clone(origin, sub_m.value_of("remote"))),
         (&_, _) => todo!(),
     }
 }
@@ -166,14 +168,14 @@ async fn recipe_clone(
 }
 
 /// Clone all data from one remote to the other
-async fn clone(remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let remote = remote.unwrap();
 
-    let origin_index = ladle::recipe_index(BASE_URL, "").await?;
+    let origin_index = ladle::recipe_index(origin, "").await?;
 
     let origin_recipes_fetches = origin_index
         .iter()
-        .map(|r| ladle::recipe_get(BASE_URL, &r.id));
+        .map(|r| ladle::recipe_get(origin, &r.id));
 
     let origin_recipes: HashSet<Recipe> = join_all(origin_recipes_fetches)
         .await
