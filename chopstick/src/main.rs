@@ -138,6 +138,7 @@ async fn main() {
         SimpleLogger::new()
             .with_level(LevelFilter::Info)
             .with_module_level("ladle", LevelFilter::Debug)
+            .with_module_level("chopstick", LevelFilter::Debug)
             .init()
             .unwrap();
     } else {
@@ -147,23 +148,45 @@ async fn main() {
             .unwrap();
     }
 
-    let mut origin: &str = "";
-    if let Some(server) = matches.value_of("server") {
-        origin = server;
+    let mut origin: Option<String> = None;
+
+    if let Some(mut home) = dirs::home_dir() {
+        home.push(".config");
+        home.push("chopstick");
+        home.set_extension("toml");
+        match config::Config::builder()
+            .add_source(config::File::with_name(home.to_str().unwrap()))
+            .build()
+        {
+            Ok(settings) => match settings.get::<String>("default_remote") {
+                Ok(server) => origin = Some(server),
+                Err(message) => log::debug!("{:?}", message),
+            },
+            Err(message) => log::debug!("{:?}", message),
+        }
     }
 
-    let exec = match matches.subcommand() {
-        ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(origin, &sub_m),
-        ("ingredient", Some(sub_m)) => ingredient_actions::ingredient_actions(origin, &sub_m),
-        ("label", Some(sub_m)) => label_actions::label_actions(origin, &sub_m),
-        ("remote", Some(sub_m)) => maintenance_actions::maintenance_actions(origin, &sub_m),
-        _ => {
-            println!("{}", matches.usage());
-            Ok(())
-        }
-    };
+    if let Some(server) = matches.value_of("server") {
+        origin = Some(server.to_owned());
+    }
 
-    if let Err(message) = exec {
-        log::error!("{}", message);
+    if let Some(server) = origin {
+        let server = server.as_str();
+        let exec = match matches.subcommand() {
+            ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(server, &sub_m),
+            ("ingredient", Some(sub_m)) => ingredient_actions::ingredient_actions(server, &sub_m),
+            ("label", Some(sub_m)) => label_actions::label_actions(server, &sub_m),
+            ("remote", Some(sub_m)) => maintenance_actions::maintenance_actions(server, &sub_m),
+            _ => {
+                println!("{}", matches.usage());
+                Ok(())
+            }
+        };
+
+        if let Err(message) = exec {
+            log::error!("{}", message);
+        }
+    } else {
+        log::error!("Missing parameter: [-s --server] server");
     }
 }
