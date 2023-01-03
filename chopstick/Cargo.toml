@@ -8,6 +8,7 @@ clap = "~2.27.0"
 config = "0.13.3"
 dirs = "4.0.0"
 futures = "0.3"
+indicatif = "0.17.2"
 ladle = { version = "0.1", path = "../" }
 log = "0.4.0"
 serde_json = "~1.0.89"

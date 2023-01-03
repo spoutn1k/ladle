@@ -213,40 +213,73 @@ pub async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn err
 
 async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
     let ingredients = ladle::ingredient_index(origin, "").await?;
+
+    let number = ingredients.len().try_into().ok().unwrap();
+    let bar = indicatif::ProgressBar::new(number)
+        .with_message("Fetching ingredients")
+        .with_style(
+            indicatif::ProgressStyle::with_template("{msg:<30} [{wide_bar}] {pos:>4}/{len:4}")
+                .unwrap()
+                .progress_chars("=>-"),
+        );
+
     let fetches = ingredients
         .iter()
         .map(|ingredient| ladle::ingredient_get(origin, &ingredient.id));
 
-    let to_delete = join_all(fetches)
-        .await
-        .iter()
-        .filter_map(|r| r.as_ref().map_err(|e| log::error!("{:?}", e)).ok())
-        .cloned()
-        .filter(|ing| ing.used_in.len() == 0)
-        .collect::<Vec<_>>();
+    let mut to_delete = HashSet::new();
+    for fetch in fetches {
+        bar.inc(1);
+        match fetch.await {
+            Err(message) => log::error!("{:?}", message),
+            Ok(ingredient) => {
+                if ingredient.used_in.len() == 0 {
+                    to_delete.insert(ingredient);
+                }
+            }
+        }
+    }
 
-    let deletions = to_delete
-        .iter()
-        .map(|ing| ladle::ingredient_delete(origin, ing.id.as_str()));
-    join_all(deletions).await;
+    for ing in to_delete.iter() {
+        ladle::ingredient_delete(origin, ing.id.as_str()).await?;
+        log::info!("Deleted ingredient `{}` ({})", ing.name, ing.id);
+    }
+
+    bar.finish();
 
     let labels = ladle::label_index(origin, "").await?;
     let fetches = labels
         .iter()
         .map(|label| ladle::label_get(origin, &label.id));
 
-    let to_delete = join_all(fetches)
-        .await
-        .iter()
-        .filter_map(|r| r.as_ref().map_err(|e| log::error!("{:?}", e)).ok())
-        .cloned()
-        .filter(|ing| ing.tagged_recipes.len() == 0)
-        .collect::<Vec<_>>();
+    let number = fetches.len().try_into().ok().unwrap();
+    let bar = indicatif::ProgressBar::new(number)
+        .with_message("Fetching labels")
+        .with_style(
+            indicatif::ProgressStyle::with_template("{msg:<30} [{wide_bar}] {pos:>4}/{len:4}")
+                .unwrap()
+                .progress_chars("=>-"),
+        );
 
-    let deletions = to_delete
-        .iter()
-        .map(|ing| ladle::label_delete(origin, ing.id.as_str()));
-    join_all(deletions).await;
+    let mut to_delete = HashSet::new();
+    for fetch in fetches {
+        bar.inc(1);
+        match fetch.await {
+            Err(message) => log::error!("{:?}", message),
+            Ok(label) => {
+                if label.tagged_recipes.len() == 0 {
+                    to_delete.insert(label);
+                }
+            }
+        }
+    }
+
+    bar.finish();
+
+    for label in to_delete.iter() {
+        ladle::label_delete(origin, label.id.as_str()).await?;
+        log::info!("Deleted label `{}` ({})", label.name, label.id);
+    }
 
     Ok(())
 }
