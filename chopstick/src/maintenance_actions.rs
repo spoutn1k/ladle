@@ -1,6 +1,6 @@
 use futures::executor::block_on;
 use futures::future::join_all;
-use ladle::models::{IngredientIndex, Recipe, RecipeIndex};
+use ladle::models::{Ingredient, IngredientIndex, Label, LabelIndex, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
@@ -10,6 +10,7 @@ pub fn maintenance_actions(
 ) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
         ("clone", Some(sub_m)) => block_on(clone(origin, sub_m.value_of("remote"))),
+        ("clean", Some(_sub_m)) => clean(origin),
         (&_, _) => todo!(),
     }
 }
@@ -206,6 +207,41 @@ async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::
             .for_each(|(index, id)| {
                 recipe_table.insert(tier[index].id.as_str(), id.to_owned());
             });
+    }
+
+    Ok(())
+}
+
+fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
+    let ingredients = block_on(ladle::ingredient_index(origin, ""))?;
+
+    let mut unused = vec![];
+
+    for ingredient in ingredients.iter() {
+        println!("Getting {:?}", ingredient);
+        let Ingredient { id, name, used_in } =
+            block_on(ladle::ingredient_get(origin, &ingredient.id))?;
+        if used_in.len() == 0 {
+            println!("Deleting ingredient {}", name);
+            unused.push(id);
+        }
+    }
+
+    let labels = block_on(ladle::label_index(origin, ""))?;
+
+    let mut unused = vec![];
+
+    for label in labels.iter() {
+        println!("Getting {:?}", label);
+        let Label {
+            id,
+            name,
+            tagged_recipes,
+        } = block_on(ladle::label_get(origin, &label.id))?;
+        if tagged_recipes.len() == 0 {
+            println!("Deleting label {}", name);
+            unused.push(id);
+        }
     }
 
     Ok(())

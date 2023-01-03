@@ -23,6 +23,9 @@ async fn main() {
                 (about: "clone recipes")
                 (@arg remote: +required "URL of the destination")
             )
+            (@subcommand clean =>
+                (about: "delete unused ingredients and labels")
+            )
         )
         (@subcommand recipe =>
             (about: "access recipes")
@@ -118,16 +121,16 @@ async fn main() {
                 (@arg id: +required "target label id")
             )
             (@subcommand create =>
-                (about: "create an label")
+                (about: "create a label")
                 (@arg name: +required "target label name")
             )
             (@subcommand edit =>
-                (about: "edit an label")
+                (about: "edit a label")
                 (@arg id: +required "target label id")
                 (@arg name: -n --name +takes_value "new label name")
             )
             (@subcommand delete =>
-                (about: "delete an label")
+                (about: "delete a label")
                 (@arg id: +required "target label id")
             )
         )
@@ -136,9 +139,9 @@ async fn main() {
 
     if matches.is_present("verbose") {
         SimpleLogger::new()
-            .with_level(LevelFilter::Info)
-            .with_module_level("ladle", LevelFilter::Debug)
-            .with_module_level("chopstick", LevelFilter::Debug)
+            .with_level(LevelFilter::Debug)
+            .with_module_level("reqwest", LevelFilter::Trace)
+            //.with_module_level("chopstick", LevelFilter::Debug)
             .init()
             .unwrap();
     } else {
