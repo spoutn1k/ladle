@@ -1,16 +1,15 @@
-use futures::executor::block_on;
 use futures::future::join_all;
-use ladle::models::{Ingredient, IngredientIndex, Label, LabelIndex, Recipe, RecipeIndex};
+use ladle::models::{Ingredient, IngredientIndex, Label, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
-pub fn maintenance_actions(
+pub async fn maintenance_actions(
     origin: &str,
-    matches: &clap::ArgMatches,
+    matches: &clap::ArgMatches<'static>,
 ) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
-        ("clone", Some(sub_m)) => block_on(clone(origin, sub_m.value_of("remote"))),
-        ("clean", Some(_sub_m)) => clean(origin),
+        ("clone", Some(sub_m)) => clone(origin, sub_m.value_of("remote")).await,
+        ("clean", Some(_sub_m)) => clean(origin).await,
         (&_, _) => todo!(),
     }
 }
@@ -169,7 +168,7 @@ async fn recipe_clone(
 }
 
 /// Clone all data from one remote to the other
-async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+pub async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let remote = remote.unwrap();
 
     let origin_index = ladle::recipe_index(origin, "").await?;
@@ -212,34 +211,32 @@ async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::
     Ok(())
 }
 
-fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
-    let ingredients = block_on(ladle::ingredient_index(origin, ""))?;
+async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
+    let ingredients = ladle::ingredient_index(origin, "").await?;
 
     let mut unused = vec![];
 
     for ingredient in ingredients.iter() {
-        println!("Getting {:?}", ingredient);
         let Ingredient { id, name, used_in } =
-            block_on(ladle::ingredient_get(origin, &ingredient.id))?;
+            ladle::ingredient_get(origin, &ingredient.id).await?;
         if used_in.len() == 0 {
-            println!("Deleting ingredient {}", name);
+            log::info!("Deleting ingredient {}", name);
             unused.push(id);
         }
     }
 
-    let labels = block_on(ladle::label_index(origin, ""))?;
+    let labels = ladle::label_index(origin, "").await?;
 
     let mut unused = vec![];
 
     for label in labels.iter() {
-        println!("Getting {:?}", label);
         let Label {
             id,
             name,
             tagged_recipes,
-        } = block_on(ladle::label_get(origin, &label.id))?;
+        } = ladle::label_get(origin, &label.id).await?;
         if tagged_recipes.len() == 0 {
-            println!("Deleting label {}", name);
+            log::info!("Deleting label {}", name);
             unused.push(id);
         }
     }

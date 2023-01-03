@@ -176,10 +176,14 @@ async fn main() {
     if let Some(server) = origin {
         let server = server.as_str();
         let exec = match matches.subcommand() {
-            ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(server, &sub_m),
-            ("ingredient", Some(sub_m)) => ingredient_actions::ingredient_actions(server, &sub_m),
-            ("label", Some(sub_m)) => label_actions::label_actions(server, &sub_m),
-            ("remote", Some(sub_m)) => maintenance_actions::maintenance_actions(server, &sub_m),
+            ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(server, &sub_m).await,
+            ("ingredient", Some(sub_m)) => {
+                ingredient_actions::ingredient_actions(server, &sub_m).await
+            }
+            ("label", Some(sub_m)) => label_actions::label_actions(server, &sub_m).await,
+            ("remote", Some(sub_m)) => {
+                maintenance_actions::maintenance_actions(server, &sub_m).await
+            }
             _ => {
                 println!("{}", matches.usage());
                 Ok(())

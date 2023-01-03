@@ -1,18 +1,19 @@
-use futures::executor::block_on;
 use ladle::models::Label;
 use std::collections::HashMap;
 use std::error;
 
-pub fn label_actions(
+pub async fn label_actions(
     origin: &str,
-    matches: &clap::ArgMatches,
+    matches: &clap::ArgMatches<'static>,
 ) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
-        ("list", Some(sub_m)) => label_list(origin, sub_m.value_of("pattern")),
-        ("show", Some(sub_m)) => label_show(origin, sub_m.value_of("id")),
-        ("create", Some(sub_m)) => label_create(origin, sub_m.value_of("name")),
-        ("edit", Some(sub_m)) => label_edit(origin, sub_m.value_of("id"), sub_m.value_of("name")),
-        ("delete", Some(sub_m)) => label_delete(origin, sub_m.value_of("id")),
+        ("list", Some(sub_m)) => label_list(origin, sub_m.value_of("pattern")).await,
+        ("show", Some(sub_m)) => label_show(origin, sub_m.value_of("id")).await,
+        ("create", Some(sub_m)) => label_create(origin, sub_m.value_of("name")).await,
+        ("edit", Some(sub_m)) => {
+            label_edit(origin, sub_m.value_of("id"), sub_m.value_of("name")).await
+        }
+        ("delete", Some(sub_m)) => label_delete(origin, sub_m.value_of("id")).await,
         _ => {
             println!("{}", matches.usage());
             Ok(())
@@ -20,20 +21,21 @@ pub fn label_actions(
     }
 }
 
-fn label_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    block_on(ladle::label_index(origin, pattern.unwrap_or("")))?
+async fn label_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    ladle::label_index(origin, pattern.unwrap_or(""))
+        .await?
         .iter()
         .map(|x| println!("{}\t{}", x.id, x.name))
         .for_each(drop);
     Ok(())
 }
 
-fn label_show(origin: &str, _id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+async fn label_show(origin: &str, _id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let Label {
         id: _,
         name: _,
         tagged_recipes,
-    } = block_on(ladle::label_get(origin, _id.unwrap()))?;
+    } = ladle::label_get(origin, _id.unwrap()).await?;
     tagged_recipes
         .iter()
         .map(|r| {
@@ -44,12 +46,12 @@ fn label_show(origin: &str, _id: Option<&str>) -> Result<(), Box<dyn error::Erro
     Ok(())
 }
 
-fn label_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    block_on(ladle::label_create(origin, name.unwrap()))?;
+async fn label_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    ladle::label_create(origin, name.unwrap()).await?;
     Ok(())
 }
 
-fn label_edit(
+async fn label_edit(
     origin: &str,
     id: Option<&str>,
     name: Option<&str>,
@@ -60,11 +62,11 @@ fn label_edit(
         params.insert("name", value);
     }
 
-    block_on(ladle::label_update(origin, id.unwrap(), params))?;
+    ladle::label_update(origin, id.unwrap(), params).await?;
     Ok(())
 }
 
-fn label_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    block_on(ladle::label_delete(origin, id.unwrap()))?;
+async fn label_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
+    ladle::label_delete(origin, id.unwrap()).await?;
     Ok(())
 }
