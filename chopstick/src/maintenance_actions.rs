@@ -1,5 +1,5 @@
 use futures::future::join_all;
-use ladle::models::{Ingredient, IngredientIndex, Label, Recipe, RecipeIndex};
+use ladle::models::{IngredientIndex, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
@@ -213,33 +213,40 @@ pub async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn err
 
 async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
     let ingredients = ladle::ingredient_index(origin, "").await?;
+    let fetches = ingredients
+        .iter()
+        .map(|ingredient| ladle::ingredient_get(origin, &ingredient.id));
 
-    let mut unused = vec![];
+    let to_delete = join_all(fetches)
+        .await
+        .iter()
+        .filter_map(|r| r.as_ref().map_err(|e| log::error!("{:?}", e)).ok())
+        .cloned()
+        .filter(|ing| ing.used_in.len() == 0)
+        .collect::<Vec<_>>();
 
-    for ingredient in ingredients.iter() {
-        let Ingredient { id, name, used_in } =
-            ladle::ingredient_get(origin, &ingredient.id).await?;
-        if used_in.len() == 0 {
-            log::info!("Deleting ingredient {}", name);
-            unused.push(id);
-        }
-    }
+    let deletions = to_delete
+        .iter()
+        .map(|ing| ladle::ingredient_delete(origin, ing.id.as_str()));
+    join_all(deletions).await;
 
     let labels = ladle::label_index(origin, "").await?;
+    let fetches = labels
+        .iter()
+        .map(|label| ladle::label_get(origin, &label.id));
 
-    let mut unused = vec![];
+    let to_delete = join_all(fetches)
+        .await
+        .iter()
+        .filter_map(|r| r.as_ref().map_err(|e| log::error!("{:?}", e)).ok())
+        .cloned()
+        .filter(|ing| ing.tagged_recipes.len() == 0)
+        .collect::<Vec<_>>();
 
-    for label in labels.iter() {
-        let Label {
-            id,
-            name,
-            tagged_recipes,
-        } = ladle::label_get(origin, &label.id).await?;
-        if tagged_recipes.len() == 0 {
-            log::info!("Deleting label {}", name);
-            unused.push(id);
-        }
-    }
+    let deletions = to_delete
+        .iter()
+        .map(|ing| ladle::label_delete(origin, ing.id.as_str()));
+    join_all(deletions).await;
 
     Ok(())
 }
