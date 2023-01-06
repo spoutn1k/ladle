@@ -1,5 +1,6 @@
+use crate::ChopstickError;
 use futures::future::join_all;
-use ladle::models::Ingredient;
+use ladle::models::{Ingredient, IngredientIndex};
 use std::collections::HashMap;
 use std::error;
 
@@ -40,15 +41,16 @@ async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<
 }
 
 async fn ingredient_show(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let Ingredient {
-        id: _,
-        name: _,
-        used_in,
-    } = ladle::ingredient_get(origin, id.unwrap()).await?;
+    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+
+    let Ingredient { id, name, used_in } = ladle::ingredient_get(origin, &ingredient.id).await?;
+
+    println!("{}\t{}", name, id);
     used_in
         .iter()
-        .map(|r| println!("{}\t{}", r.id, r.name))
+        .map(|r| println!("- {}\t{}", r.name, r.id))
         .for_each(drop);
+
     Ok(())
 }
 
@@ -62,19 +64,21 @@ async fn ingredient_edit(
     id: Option<&str>,
     name: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
+    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+
     let mut params = HashMap::new();
 
     if let Some(value) = name {
         params.insert("name", value);
     }
 
-    ladle::ingredient_update(origin, id.unwrap(), params).await?;
-    Ok(())
+    ladle::ingredient_update(origin, &ingredient.id, params).await
 }
 
 async fn ingredient_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    ladle::ingredient_delete(origin, id.unwrap()).await?;
-    Ok(())
+    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+
+    ladle::ingredient_delete(origin, &ingredient.id).await
 }
 
 /// Given two ingredient ids, migrate all requirements involving the obsolete id to the main id,
@@ -123,4 +127,40 @@ async fn ingredient_merge(
     ladle::ingredient_delete(origin, obsolete_id).await?;
 
     Ok(())
+}
+
+async fn ingredient_identify(
+    url: &str,
+    clue: &str,
+    create: bool,
+) -> Result<IngredientIndex, Box<dyn error::Error>> {
+    if let Ok(Ingredient {
+        name,
+        id,
+        used_in: _,
+    }) = ladle::ingredient_get(url, clue).await
+    {
+        return Ok(IngredientIndex { id, name });
+    }
+
+    let matches = ladle::ingredient_index(url, clue).await?;
+
+    if matches.len() == 1 {
+        return Ok(matches.first().unwrap().to_owned());
+    }
+
+    for indice in matches.iter() {
+        if indice.name == clue {
+            return Ok(indice.to_owned());
+        }
+    }
+
+    if create {
+        ladle::ingredient_create(url, clue).await
+    } else {
+        Err(Box::new(ChopstickError(format!(
+            "Failed to identify ingredient from: `{}`",
+            clue
+        ))))
+    }
 }

@@ -5,9 +5,22 @@ mod recipe_actions;
 
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
+use std::error::Error;
+use std::fmt;
 
 #[macro_use]
 extern crate clap;
+
+#[derive(Debug)]
+struct ChopstickError(String);
+
+impl fmt::Display for ChopstickError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for ChopstickError {}
 
 #[tokio::main]
 async fn main() {
