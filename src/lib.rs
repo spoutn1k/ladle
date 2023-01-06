@@ -1,5 +1,5 @@
-use reqwest::Client;
-use std::any::{Any, TypeId};
+use reqwest::{Client, StatusCode};
+use std::any::Any;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
@@ -7,7 +7,7 @@ use std::fmt;
 pub mod models;
 
 #[derive(Debug)]
-struct KnifeError(String);
+struct KnifeError(StatusCode, String);
 
 impl fmt::Display for KnifeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -31,52 +31,43 @@ impl Error for LadleError {}
 async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    log::debug!("GET {}", url);
+    let response = client.get(url).send().await?;
+    let status_code = response.status();
 
-    let response = client
-        .get(url)
-        .send()
-        .await?
-        .json::<models::Answer<T>>()
-        .await?;
+    log::debug!("GET {} -> {}", url, status_code);
 
-    match (response.accept, response.data) {
-        (true, Some(object)) => Ok(object),
-        (true, None) => Err(Box::new(LadleError(String::from(
+    let answer = response.json::<models::Answer<T>>().await?;
+
+    match (status_code, answer.data) {
+        (StatusCode::OK, Some(object)) => Ok(object),
+        (StatusCode::OK, None) => Err(Box::new(LadleError(String::from(
             "Failed to interpret the server's response",
         )))),
-        _ => Err(Box::new(KnifeError(response.error))),
+        (status, _) => Err(Box::new(KnifeError(status, answer.error))),
     }
 }
 
+/// Send a POST request to a knife server. Hijack the 409 CONFLICT status to get info on existing
+/// data
 async fn post<'a, T: serde::de::DeserializeOwned + Any + Default>(
     url: &str,
     params: HashMap<&str, &str>,
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    log::debug!("POST {} {:?}", url, params);
+    let response = client.post(url).form(&params).send().await?;
+    let status_code = response.status();
 
-    let response = client
-        .post(url)
-        .form(&params)
-        .send()
-        .await?
-        .json::<models::Answer<T>>()
-        .await?;
+    log::debug!("POST {} {:?} -> {}", url, params, status_code);
 
-    match (response.accept, response.data) {
-        (true, Some(object)) => Ok(object),
-        (true, None) => {
-            if TypeId::of::<T>() == TypeId::of::<()>() {
-                Ok(T::default())
-            } else {
-                Err(Box::new(LadleError(String::from(
-                    "Failed to interpret the server's response",
-                ))))
-            }
-        }
-        _ => Err(Box::new(KnifeError(response.error))),
+    let answer = response.json::<models::Answer<T>>().await?;
+
+    match (status_code, answer.data) {
+        (StatusCode::OK, Some(object))
+        | (StatusCode::CREATED, Some(object))
+        | (StatusCode::CONFLICT, Some(object)) => Ok(object),
+        (StatusCode::OK, None) | (StatusCode::CREATED, None) => Ok(T::default()),
+        (status, _) => Err(Box::new(KnifeError(status, answer.error))),
     }
 }
 
@@ -86,46 +77,38 @@ async fn put<'a, T: serde::de::DeserializeOwned + Any + Default>(
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    log::debug!("PUT {} {:?}", url, params);
+    let response = client.put(url).form(&params).send().await?;
+    let status_code = response.status();
 
-    let response = client
-        .put(url)
-        .form(&params)
-        .send()
-        .await?
-        .json::<models::Answer<T>>()
-        .await?;
+    log::debug!("PUT {} {:?} -> {}", url, params, status_code);
 
-    match (response.accept, response.data) {
-        (true, Some(object)) => Ok(object),
-        (true, None) => {
-            if TypeId::of::<T>() == TypeId::of::<()>() {
-                Ok(T::default())
-            } else {
-                Err(Box::new(LadleError(String::from(
-                    "Failed to interpret the server's response",
-                ))))
-            }
+    let answer = response.json::<models::Answer<T>>().await?;
+
+    match (status_code, answer.data) {
+        (StatusCode::OK, Some(object))
+        | (StatusCode::CREATED, Some(object))
+        | (StatusCode::ACCEPTED, Some(object))
+        | (StatusCode::CONFLICT, Some(object)) => Ok(object),
+        (StatusCode::OK, None) | (StatusCode::CREATED, None) | (StatusCode::ACCEPTED, None) => {
+            Ok(T::default())
         }
-        _ => Err(Box::new(KnifeError(response.error))),
+        (status, _) => Err(Box::new(KnifeError(status, answer.error))),
     }
 }
 
 async fn delete(url: &str) -> Result<(), Box<dyn Error>> {
     let client = Client::new();
 
-    log::debug!("DELETE {}", url);
+    let response = client.delete(url).send().await?;
+    let status_code = response.status();
 
-    let response = client
-        .delete(url)
-        .send()
-        .await?
-        .json::<models::Answer<()>>()
-        .await?;
+    log::debug!("DELETE {} -> {}", url, status_code);
 
-    match (response.accept, response.data) {
-        (true, _) => Ok(()),
-        _ => Err(Box::new(KnifeError(response.error))),
+    let answer = response.json::<models::Answer<()>>().await?;
+
+    match (status_code, answer.data) {
+        (StatusCode::OK, _) => Ok(()),
+        (status, _) => Err(Box::new(KnifeError(status, answer.error))),
     }
 }
 
@@ -221,29 +204,24 @@ pub async fn ingredient_index(
     pattern: &str,
 ) -> Result<Vec<models::IngredientIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients?name={}", url, pattern);
-    let answer = get::<Vec<models::IngredientIndex>>(&endpoint);
 
-    answer.await
+    get(&endpoint).await
 }
 
 pub async fn ingredient_get(url: &str, id: &str) -> Result<models::Ingredient, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = get::<models::Ingredient>(&endpoint);
 
-    answer.await
+    get(&endpoint).await
 }
 
 pub async fn ingredient_create(
     url: &str,
     name: &str,
 ) -> Result<models::IngredientIndex, Box<dyn Error>> {
-    let mut params = HashMap::new();
-    params.insert("name", name);
-
+    let params = HashMap::from([("name", name)]);
     let endpoint = format!("{}/ingredients/new", url);
-    let answer = post(&endpoint, params);
 
-    answer.await
+    post(&endpoint, params).await
 }
 
 pub async fn ingredient_update(
@@ -252,9 +230,8 @@ pub async fn ingredient_update(
     data: HashMap<&str, &str>,
 ) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = put(&endpoint, data);
 
-    answer.await
+    put(&endpoint, data).await
 }
 
 pub async fn ingredient_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
