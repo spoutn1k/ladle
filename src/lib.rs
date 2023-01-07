@@ -11,7 +11,7 @@ struct KnifeError(StatusCode, String);
 
 impl fmt::Display for KnifeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Server returned an error: {}", self.0)
+        write!(f, "Server returned an error: [{}] {}", self.0, self.1)
     }
 }
 
@@ -293,9 +293,7 @@ pub async fn requirement_create(
     quantity: &str,
 ) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
-    let mut params = HashMap::new();
-    params.insert("quantity", quantity);
-    params.insert("ingredient_id", ingredient_id);
+    let params = HashMap::from([("quantity", quantity), ("ingredient_id", ingredient_id)]);
 
     post(&endpoint, params).await
 }
