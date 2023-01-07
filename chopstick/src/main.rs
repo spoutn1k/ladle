@@ -48,7 +48,7 @@ async fn main() {
             )
             (@subcommand show =>
                 (about: "show details about a recipe")
-                (@arg id: +required "target recipe id")
+                (@arg recipe: +required "target recipe id or name")
             )
             (@subcommand create =>
                 (about: "create a new recipe")
@@ -56,41 +56,41 @@ async fn main() {
             )
             (@subcommand edit =>
                 (about: "edit a recipe")
-                (@arg id: +required "target recipe id")
+                (@arg recipe: +required "target recipe id or name")
                 (@arg name: -n --name +takes_value "new recipe name")
                 (@arg author: -a --author +takes_value "new recipe author")
                 (@arg description: -d --description +takes_value "new recipe description")
             )
             (@subcommand delete =>
                 (about: "delete a recipe")
-                (@arg id: +required "target recipe id")
+                (@arg recipe: +required "target recipe id or name")
             )
             (@subcommand requirement =>
                 (about: "edit recipe requirements")
                 (@subcommand create =>
                     (about: "add a requirement to a recipe")
-                    (@arg id: +required "target recipe id")
-                    (@arg ingredient_id: +required "required ingredient id")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg ingredient: +required "required ingredient id or name")
                     (@arg quantity: +required "required quantity")
                 )
                 (@subcommand update =>
                     (about: "update a requirement to a recipe")
-                    (@arg id: +required "target recipe id")
-                    (@arg ingredient_id: +required "required ingredient id")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg ingredient: +required "required ingredient id or name")
                     (@arg quantity: +required "required quantity")
                 )
                 (@subcommand delete =>
                     (about: "delete a requirement from a recipe")
-                    (@arg id: +required "target recipe id")
-                    (@arg ingredient_id: +required "required ingredient id")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg ingredient: +required "required ingredient id or name")
                 )
             )
             (@subcommand dependency =>
                 (about: "edit recipe dependencies")
                 (@subcommand add =>
                     (about: "add a dependency to a recipe")
-                    (@arg id: +required "target recipe id")
-                    (@arg required_id: +required "required recipe id")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg required: +required "required recipe id or name")
                 )
             )
         )
@@ -102,7 +102,7 @@ async fn main() {
             )
             (@subcommand show =>
                 (about: "show details about an ingredient")
-                (@arg id: +required "target ingredient id")
+                (@arg ingredient: +required "target ingredient id or name")
             )
             (@subcommand create =>
                 (about: "create an ingredient")
@@ -110,17 +110,17 @@ async fn main() {
             )
             (@subcommand edit =>
                 (about: "edit an ingredient")
-                (@arg id: +required "target ingredient id")
+                (@arg ingredient: +required "target ingredient id or name")
                 (@arg name: -n --name +takes_value "new ingredient name")
             )
             (@subcommand delete =>
                 (about: "delete an ingredient")
-                (@arg id: +required "target ingredient id")
+                (@arg ingredient: +required "target ingredient id or name")
             )
             (@subcommand merge =>
                 (about: "merge two ingredients")
-                (@arg target_id: +required "target ingredient id")
-                (@arg obsolete_id: +required "target ingredient id")
+                (@arg target: +required "target ingredient id or name")
+                (@arg obsolete: +required "target ingredient id or name")
             )
         )
         (@subcommand label =>
@@ -131,7 +131,7 @@ async fn main() {
             )
             (@subcommand show =>
                 (about: "list recipes tagged with a given label")
-                (@arg id: +required "target label id")
+                (@arg label: +required "target label id or name")
             )
             (@subcommand create =>
                 (about: "create a label")
@@ -139,12 +139,12 @@ async fn main() {
             )
             (@subcommand edit =>
                 (about: "edit a label")
-                (@arg id: +required "target label id")
+                (@arg label: +required "target label id or name")
                 (@arg name: -n --name +takes_value "new label name")
             )
             (@subcommand delete =>
                 (about: "delete a label")
-                (@arg id: +required "target label id")
+                (@arg label: +required "target label id or name")
             )
         )
     )

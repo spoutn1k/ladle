@@ -10,19 +10,14 @@ pub async fn ingredient_actions(
 ) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
         ("list", Some(sub_m)) => ingredient_list(origin, sub_m.value_of("pattern")).await,
-        ("show", Some(sub_m)) => ingredient_show(origin, sub_m.value_of("id")).await,
+        ("show", Some(sub_m)) => ingredient_show(origin, sub_m.value_of("ingredient")).await,
         ("create", Some(sub_m)) => ingredient_create(origin, sub_m.value_of("name")).await,
         ("edit", Some(sub_m)) => {
-            ingredient_edit(origin, sub_m.value_of("id"), sub_m.value_of("name")).await
+            ingredient_edit(origin, sub_m.value_of("ingredient"), sub_m.value_of("name")).await
         }
-        ("delete", Some(sub_m)) => ingredient_delete(origin, sub_m.value_of("id")).await,
+        ("delete", Some(sub_m)) => ingredient_delete(origin, sub_m.value_of("ingredient")).await,
         ("merge", Some(sub_m)) => {
-            ingredient_merge(
-                origin,
-                sub_m.value_of("target_id"),
-                sub_m.value_of("obsolete_id"),
-            )
-            .await
+            ingredient_merge(origin, sub_m.value_of("target"), sub_m.value_of("obsolete")).await
         }
         _ => {
             println!("{}", matches.usage());
@@ -85,13 +80,17 @@ async fn ingredient_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn
 /// then delete the obsolete ingredient
 async fn ingredient_merge(
     origin: &str,
-    id: Option<&str>,
-    obsolete_id: Option<&str>,
+    target_clue: Option<&str>,
+    obsolete_clue: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let target_id = id.unwrap();
-    let obsolete_id = obsolete_id.unwrap();
+    let target_id = ingredient_identify(origin, target_clue.unwrap(), false)
+        .await?
+        .id;
+    let obsolete_id = ingredient_identify(origin, obsolete_clue.unwrap(), false)
+        .await?
+        .id;
 
-    let uses = ladle::ingredient_get(origin, obsolete_id).await?;
+    let uses = ladle::ingredient_get(origin, &obsolete_id).await?;
 
     let uses = uses.used_in.iter().map(|recipe| async {
         match ladle::recipe_get_requirements(origin, &recipe.id)
@@ -115,21 +114,21 @@ async fn ingredient_merge(
         .collect::<Vec<(String, String)>>();
 
     let additions = targets.iter().map(|(recipe_id, quantity)| async {
-        ladle::requirement_create(origin, recipe_id, target_id, quantity).await
+        ladle::requirement_create(origin, recipe_id, &target_id, quantity).await
     });
 
     let deletions = targets.iter().map(|(recipe_id, _)| async {
-        ladle::requirement_delete(origin, recipe_id, obsolete_id).await
+        ladle::requirement_delete(origin, recipe_id, &obsolete_id).await
     });
 
     join_all(additions).await;
     join_all(deletions).await;
-    ladle::ingredient_delete(origin, obsolete_id).await?;
+    ladle::ingredient_delete(origin, &obsolete_id).await?;
 
     Ok(())
 }
 
-async fn ingredient_identify(
+pub async fn ingredient_identify(
     url: &str,
     clue: &str,
     create: bool,
@@ -146,7 +145,15 @@ async fn ingredient_identify(
     let matches = ladle::ingredient_index(url, clue).await?;
 
     if matches.len() == 1 {
-        return Ok(matches.first().unwrap().to_owned());
+        let ingredient = matches.first().unwrap();
+        if ingredient.name != clue {
+            log::info!(
+                "Identified ingredient `{}` from `{}`",
+                ingredient.name,
+                clue
+            );
+        }
+        return Ok(ingredient.to_owned());
     }
 
     for indice in matches.iter() {
