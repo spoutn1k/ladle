@@ -59,7 +59,7 @@ async fn main() {
                 (@arg recipe: +required "target recipe id or name")
                 (@arg name: -n --name +takes_value "new recipe name")
                 (@arg author: -a --author +takes_value "new recipe author")
-                (@arg description: -d --description +takes_value "new recipe description")
+                (@arg directions: -d --directions +takes_value "new recipe directions")
             )
             (@subcommand delete =>
                 (about: "delete a recipe")
@@ -87,8 +87,13 @@ async fn main() {
             )
             (@subcommand dependency =>
                 (about: "edit recipe dependencies")
-                (@subcommand add =>
+                (@subcommand create =>
                     (about: "add a dependency to a recipe")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg required: +required "required recipe id or name")
+                )
+                (@subcommand delete =>
+                    (about: "remove a dependency from a recipe")
                     (@arg recipe: +required "target recipe id or name")
                     (@arg required: +required "required recipe id or name")
                 )

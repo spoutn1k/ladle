@@ -18,7 +18,7 @@ pub async fn recipe_actions(
                 sub_m.value_of("recipe"),
                 sub_m.value_of("name"),
                 sub_m.value_of("author"),
-                sub_m.value_of("description"),
+                sub_m.value_of("directions"),
             )
             .await
         }
@@ -53,7 +53,7 @@ pub async fn recipe_actions(
             (&_, _) => todo!(),
         },
         ("dependency", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => {
+            ("create", Some(sub_m)) => {
                 recipe_link(origin, sub_m.value_of("recipe"), sub_m.value_of("required")).await
             }
             ("delete", Some(sub_m)) => {
@@ -94,11 +94,13 @@ async fn recipe_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn e
 
 async fn recipe_edit(
     origin: &str,
-    id: Option<&str>,
+    recipe_clue: Option<&str>,
     name: Option<&str>,
     author: Option<&str>,
-    description: Option<&str>,
+    directions: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
+    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+
     let mut params = HashMap::new();
 
     if let Some(value) = name {
@@ -109,11 +111,11 @@ async fn recipe_edit(
         params.insert("author", value);
     }
 
-    if let Some(value) = description {
-        params.insert("description", value);
+    if let Some(value) = directions {
+        params.insert("directions", value);
     }
 
-    ladle::recipe_update(origin, id.unwrap(), params).await?;
+    ladle::recipe_update(origin, &recipe.id, params).await?;
 
     Ok(())
 }
