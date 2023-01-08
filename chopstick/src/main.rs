@@ -65,6 +65,19 @@ async fn main() {
                 (about: "delete a recipe")
                 (@arg recipe: +required "target recipe id or name")
             )
+            (@subcommand tag =>
+                (about: "manage recipe tags")
+                (@subcommand add =>
+                    (about: "tag a recipe")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg label: +required "label to tag with")
+                )
+                (@subcommand delete =>
+                    (about: "remove a tag from a recipe")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg label: +required "label to untag")
+                )
+            )
             (@subcommand requirement =>
                 (about: "edit recipe requirements")
                 (@subcommand create =>

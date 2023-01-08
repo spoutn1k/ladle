@@ -1,4 +1,5 @@
 use crate::ingredient_actions::ingredient_identify;
+use crate::label_actions::label_identify;
 use crate::ChopstickError;
 use ladle::models::RecipeIndex;
 use std::collections::HashMap;
@@ -58,6 +59,15 @@ pub async fn recipe_actions(
             }
             ("delete", Some(sub_m)) => {
                 recipe_unlink(origin, sub_m.value_of("recipe"), sub_m.value_of("required")).await
+            }
+            (&_, _) => todo!(),
+        },
+        ("tag", Some(sub_m)) => match sub_m.subcommand() {
+            ("add", Some(sub_m)) => {
+                recipe_tag(origin, sub_m.value_of("recipe"), sub_m.value_of("label")).await
+            }
+            ("delete", Some(sub_m)) => {
+                recipe_untag(origin, sub_m.value_of("recipe"), sub_m.value_of("label")).await
             }
             (&_, _) => todo!(),
         },
@@ -180,6 +190,27 @@ async fn recipe_unlink(
     let required = recipe_identify(origin, required_clue.unwrap()).await?;
 
     ladle::recipe_unlink(origin, &recipe.id, &required.id).await
+}
+
+async fn recipe_tag(
+    origin: &str,
+    recipe_clue: Option<&str>,
+    label: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+
+    ladle::recipe_tag(origin, &recipe.id, &label.unwrap()).await
+}
+
+async fn recipe_untag(
+    origin: &str,
+    recipe_clue: Option<&str>,
+    label_clue: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+    let label = label_identify(origin, label_clue.unwrap(), false).await?;
+
+    ladle::recipe_untag(origin, &recipe.id, &label.id).await
 }
 
 async fn recipe_identify(url: &str, clue: &str) -> Result<RecipeIndex, Box<dyn error::Error>> {
