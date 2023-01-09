@@ -20,21 +20,19 @@ async fn gen_ingredient_table<'a>(
     remote: &str,
     origin_recipes: &'a HashSet<Recipe>,
 ) -> HashMap<&'a str, String> {
-    let ingredients_indexes: Vec<&IngredientIndex> = origin_recipes
+    let mut ingredients_indexes: Vec<&IngredientIndex> = origin_recipes
         .iter()
         .flat_map(|recipe| recipe.requirements.iter().map(|req| &req.ingredient))
         .collect();
 
-    let ingredient_posts = ingredients_indexes
-        .iter()
-        .map(|IngredientIndex { name, id: _ }| ladle::ingredient_create(remote, name));
+    ingredients_indexes.sort_by(|&lhs, &rhs| lhs.name.cmp(&rhs.name));
 
     let mut table: HashMap<&str, String> = HashMap::new();
 
-    for (index, response) in join_all(ingredient_posts).await.iter().enumerate() {
-        match response {
+    for IngredientIndex { name, id } in ingredients_indexes {
+        match ladle::ingredient_create(remote, name).await {
             Ok(ingredient) => table
-                .insert(&ingredients_indexes[index].id, ingredient.id.to_owned())
+                .insert(id, ingredient.id.to_owned())
                 .unwrap_or_default(),
             Err(message) => {
                 log::error!("{}", message);
