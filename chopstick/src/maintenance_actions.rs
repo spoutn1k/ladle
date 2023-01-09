@@ -1,5 +1,5 @@
 use futures::future::join_all;
-use ladle::models::{IngredientIndex, Recipe, RecipeIndex};
+use ladle::models::{IngredientIndex, LabelIndex, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
@@ -107,37 +107,63 @@ async fn recipe_clone(
         .await
         .expect("Failed to create recipe on remote");
 
-    let tags = recipe
-        .tags
+    let recipe_tags: Vec<&LabelIndex> = recipe.tags.iter().collect();
+
+    let tag_creations = recipe_tags
         .iter()
         .map(|l| ladle::recipe_tag(remote, &remote_recipe.id, l.name.as_str()));
-    join_all(tags)
+
+    join_all(tag_creations)
         .await
         .iter()
-        .map(|response| {
+        .enumerate()
+        .map(|(index, response)| {
             if let Err(message) = response {
-                log::error!("{:?}", message)
+                log::error!(
+                    "Error tagging recipe {} with label {}: {}",
+                    recipe.name,
+                    recipe_tags[index].name,
+                    message
+                )
             }
         })
         .for_each(drop);
 
-    let requirements = recipe.requirements.iter().filter_map(|r| {
-        match ingredient_table.get(r.ingredient.id.as_str()) {
-            Some(remote_ingredient_id) => Some(ladle::requirement_create(
-                remote,
-                remote_recipe.id.as_str(),
-                remote_ingredient_id.as_str(),
-                &r.quantity,
-            )),
-            None => None,
-        }
+    let (recipe_requirements, rejected): (Vec<_>, Vec<_>) = recipe
+        .requirements
+        .iter()
+        .partition(|r| ingredient_table.contains_key(r.ingredient.id.as_str()));
+
+    for requirement in rejected.iter() {
+        log::error!(
+            "Cannot create requirement of `{}` for `{}`: ingredient not mapped on target remote",
+            requirement.ingredient.name,
+            recipe.name
+        )
+    }
+
+    let requirement_creations = recipe_requirements.iter().map(|r| {
+        let remote_ingredient_id = ingredient_table.get(r.ingredient.id.as_str()).unwrap();
+        ladle::requirement_create(
+            remote,
+            remote_recipe.id.as_str(),
+            remote_ingredient_id.as_str(),
+            &r.quantity,
+        )
     });
-    join_all(requirements)
+
+    join_all(requirement_creations)
         .await
         .iter()
-        .map(|response| {
+        .enumerate()
+        .map(|(index, response)| {
             if let Err(message) = response {
-                log::error!("{:?}", message)
+                log::error!(
+                    "Error adding requirement of `{}` for `{}`: {}",
+                    recipe_requirements[index].ingredient.name,
+                    recipe.name,
+                    message
+                )
             }
         })
         .for_each(drop);
