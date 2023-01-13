@@ -49,9 +49,13 @@ async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn
 
 /// Send a POST request to a knife server. Hijack the 409 CONFLICT status to get info on existing
 /// data
-async fn post<'a, T: serde::de::DeserializeOwned + Any + Default>(
+async fn post<
+    'a,
+    P: serde::Serialize + fmt::Debug,
+    T: serde::de::DeserializeOwned + Any + Default,
+>(
     url: &str,
-    params: HashMap<&str, &str>,
+    params: P,
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
@@ -71,9 +75,13 @@ async fn post<'a, T: serde::de::DeserializeOwned + Any + Default>(
     }
 }
 
-async fn put<'a, T: serde::de::DeserializeOwned + Any + Default>(
+async fn put<
+    'a,
+    P: serde::Serialize + fmt::Debug,
+    T: serde::de::DeserializeOwned + Any + Default,
+>(
     url: &str,
-    params: HashMap<&str, &str>,
+    params: P,
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
@@ -134,7 +142,7 @@ pub async fn recipe_create(
     params: HashMap<&str, &str>,
 ) -> Result<models::Recipe, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/new", url);
-    let answer = post::<models::Recipe>(&endpoint, params);
+    let answer = post(&endpoint, params);
 
     answer.await
 }
@@ -145,7 +153,7 @@ pub async fn recipe_update(
     data: HashMap<&str, &str>,
 ) -> Result<models::Recipe, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}", url, id);
-    let answer = put::<models::Recipe>(&endpoint, data);
+    let answer = put(&endpoint, data);
 
     answer.await
 }
@@ -157,16 +165,49 @@ pub async fn recipe_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     answer.await
 }
 
-pub async fn recipe_link(url: &str, id: &str, required_id: &str) -> Result<(), Box<dyn Error>> {
-    let mut params = HashMap::new();
-    params.insert("requisite", required_id);
+pub async fn dependency_create(
+    url: &str,
+    id: &str,
+    required_id: &str,
+    quantity: &str,
+    optional: bool,
+) -> Result<(), Box<dyn Error>> {
+    let params = serde_json::json!({
+        "requisite": required_id,
+        "quantity": quantity,
+        "optional": optional,
+    });
     let endpoint = format!("{}/recipes/{}/dependencies/add", url, id);
     let answer = post(&endpoint, params);
 
     answer.await
 }
 
-pub async fn recipe_unlink(url: &str, id: &str, required_id: &str) -> Result<(), Box<dyn Error>> {
+pub async fn dependency_edit(
+    url: &str,
+    id: &str,
+    required_id: &str,
+    quantity: Option<&str>,
+    optional: Option<bool>,
+) -> Result<(), Box<dyn Error>> {
+    let params = match (quantity, optional) {
+        (Some(qt), Some(op)) => serde_json::json!({"quantity":qt, "optional": op}),
+        (Some(qt), None) => serde_json::json!({ "quantity": qt }),
+        (None, Some(op)) => serde_json::json!({ "optional": op }),
+        (None, None) => serde_json::json!({}),
+    };
+
+    let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
+    let answer = put(&endpoint, params);
+
+    answer.await
+}
+
+pub async fn dependency_delete(
+    url: &str,
+    id: &str,
+    required_id: &str,
+) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
     let answer = delete(&endpoint);
 
@@ -358,7 +399,7 @@ pub async fn requirement_create_from_ingredient_name(
         let mut params = HashMap::new();
         params.insert("name", ingredient);
         let endpoint = format!("{}/ingredients/new", url);
-        let ingredient = post::<models::IngredientIndex>(&endpoint, params).await?;
+        let ingredient = post::<_, models::IngredientIndex>(&endpoint, params).await?;
         ingredient_id = ingredient.id;
     };
 

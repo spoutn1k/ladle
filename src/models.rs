@@ -52,6 +52,14 @@ pub struct Requirement {
     pub quantity: String,
 }
 
+/// Dependency metadata
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Dependency {
+    pub recipe: RecipeIndex,
+    pub quantity: String,
+    pub optional: bool,
+}
+
 /// Recipe metadata
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Recipe {
@@ -70,7 +78,7 @@ pub struct Recipe {
 
     /// List of dependencies. Contains recipe indexes
     #[serde(default)]
-    pub dependencies: Vec<RecipeIndex>,
+    pub dependencies: HashSet<Dependency>,
 
     /// List of tags. Contains label indexes
     #[serde(default)]
@@ -184,3 +192,17 @@ impl PartialEq for Requirement {
 }
 
 impl Eq for Requirement {}
+
+impl Hash for Dependency {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.recipe.hash(state);
+    }
+}
+
+impl PartialEq for Dependency {
+    fn eq(&self, other: &Self) -> bool {
+        self.recipe == other.recipe
+    }
+}
+
+impl Eq for Dependency {}
