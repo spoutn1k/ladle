@@ -39,6 +39,9 @@ async fn main() {
             (@subcommand clean =>
                 (about: "delete unused ingredients and labels")
             )
+            (@subcommand dump =>
+                (about: "dump all data")
+            )
         )
         (@subcommand recipe =>
             (about: "access recipes")
