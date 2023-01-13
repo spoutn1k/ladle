@@ -104,6 +104,15 @@ async fn main() {
                     (about: "add a dependency to a recipe")
                     (@arg recipe: +required "target recipe id or name")
                     (@arg required: +required "required recipe id or name")
+                    (@arg quantity: -q --quantity +takes_value "required quantity")
+                    (@arg optional: -o --optional "mark as optional")
+                )
+                (@subcommand edit =>
+                    (about: "edit a dependency from a recipe")
+                    (@arg recipe: +required "target recipe id or name")
+                    (@arg required: +required "required recipe id or name")
+                    (@arg quantity: -q --quantity +takes_value "new required quantity")
+                    (@arg optional: -o --optional +takes_value "set optional status")
                 )
                 (@subcommand delete =>
                     (about: "remove a dependency from a recipe")

@@ -1,5 +1,5 @@
 use futures::future::join_all;
-use ladle::models::{IngredientIndex, LabelIndex, Recipe, RecipeIndex};
+use ladle::models::{Dependency, IngredientIndex, LabelIndex, Recipe, RecipeIndex};
 use std::collections::{HashMap, HashSet};
 use std::error;
 
@@ -65,7 +65,13 @@ fn recipe_tiers<'a>(recipe_set: &'a HashSet<Recipe>) -> Vec<HashSet<&'a Recipe>>
                 let dependencies = recipe
                     .dependencies
                     .iter()
-                    .map(|RecipeIndex { id, name: _ }| id.as_str())
+                    .map(
+                        |Dependency {
+                             recipe: RecipeIndex { id, name: _ },
+                             quantity: _,
+                             optional: _,
+                         }| id.as_str(),
+                    )
                     .collect::<HashSet<&str>>();
 
                 dependencies.is_subset(&tiered)
@@ -170,11 +176,13 @@ async fn recipe_clone(
         recipe
             .dependencies
             .iter()
-            .filter_map(|d| match recipe_table.get(d.id.as_str()) {
-                Some(remote_dependency_id) => Some(ladle::recipe_link(
+            .filter_map(|d| match recipe_table.get(d.recipe.id.as_str()) {
+                Some(remote_dependency_id) => Some(ladle::dependency_create(
                     remote,
                     remote_recipe.id.as_str(),
                     remote_dependency_id.as_str(),
+                    &d.quantity.as_str(),
+                    d.optional,
                 )),
                 None => None,
             });
