@@ -19,6 +19,28 @@ pub async fn maintenance_actions(
     }
 }
 
+async fn fetch_recipes(origin :&str) -> Result<HashSet<Recipe>, Box<dyn error::Error>> {
+    let origin_index = ladle::recipe_index(origin, "").await?;
+
+    let origin_recipes_fetches = origin_index
+        .iter()
+        .map(|r| ladle::recipe_get(origin, &r.id));
+
+    let recipe_list = join_all(origin_recipes_fetches)
+        .await
+        .iter()
+        .filter_map(|response| match response {
+            Ok(recipe) => Some(recipe.to_owned()),
+            Err(message) => {
+                log::error!("{}", message);
+                None
+            }
+        })
+        .collect();
+
+    Ok(recipe_list)
+}
+
 /// From a list of recipes, create all referenced ingredients on the remote and output a
 /// HashMap of the indexes
 async fn gen_ingredient_table<'a>(
@@ -208,23 +230,7 @@ async fn recipe_clone(
 pub async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let remote = remote.unwrap();
 
-    let origin_index = ladle::recipe_index(origin, "").await?;
-
-    let origin_recipes_fetches = origin_index
-        .iter()
-        .map(|r| ladle::recipe_get(origin, &r.id));
-
-    let origin_recipes: HashSet<Recipe> = join_all(origin_recipes_fetches)
-        .await
-        .iter()
-        .filter_map(|response| match response {
-            Ok(recipe) => Some(recipe.to_owned()),
-            Err(message) => {
-                log::error!("{}", message);
-                None
-            }
-        })
-        .collect();
+    let origin_recipes = fetch_recipes(origin).await?;
 
     let ingredient_table = gen_ingredient_table(remote, &origin_recipes).await;
     let recipe_tiers = recipe_tiers(&origin_recipes);
@@ -417,23 +423,7 @@ struct Dump {
 
 /// Dump all data from the remote
 pub async fn dump(origin: &str) -> Result<(), Box<dyn error::Error>> {
-    let origin_index = ladle::recipe_index(origin, "").await?;
-
-    let origin_recipes_fetches = origin_index
-        .iter()
-        .map(|r| ladle::recipe_get(origin, &r.id));
-
-    let origin_recipes: HashSet<Recipe> = join_all(origin_recipes_fetches)
-        .await
-        .iter()
-        .filter_map(|response| match response {
-            Ok(recipe) => Some(recipe.to_owned()),
-            Err(message) => {
-                log::error!("{}", message);
-                None
-            }
-        })
-        .collect();
+    let origin_recipes = fetch_recipes(origin).await?;
 
     let mut dump: Dump = Dump::default();
     let mut recipe_counter: u32 = 0;
