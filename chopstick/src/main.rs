@@ -34,6 +34,7 @@ async fn main() {
             (about: "maintenance")
             (@subcommand clone =>
                 (about: "clone recipes")
+                (@arg file: --file +takes_value "JSON file with data to clone on destination")
                 (@arg remote: +required "URL of the destination")
             )
             (@subcommand clean =>

@@ -1,10 +1,10 @@
 use futures::future::join_all;
-use ladle::models::{
-    Dependency, Ingredient, IngredientIndex, Label, LabelIndex, Recipe, RecipeIndex,
-};
-use serde::Serialize;
+use ladle::models::{Dependency, Ingredient, Label, LabelIndex, Recipe, RecipeIndex};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error;
+use std::fs::File;
+use std::io::BufReader;
 use unidecode::unidecode;
 
 pub async fn maintenance_actions(
@@ -12,14 +12,91 @@ pub async fn maintenance_actions(
     matches: &clap::ArgMatches<'static>,
 ) -> Result<(), Box<dyn error::Error>> {
     match matches.subcommand() {
-        ("clone", Some(sub_m)) => clone(origin, sub_m.value_of("remote")).await,
+        ("clone", Some(sub_m)) => {
+            clone(origin, sub_m.value_of("file"), sub_m.value_of("remote")).await
+        }
         ("clean", Some(_sub_m)) => clean(origin).await,
         ("dump", Some(_sub_m)) => dump(origin).await,
         (&_, _) => todo!(),
     }
 }
 
-async fn fetch_recipes(origin :&str) -> Result<HashSet<Recipe>, Box<dyn error::Error>> {
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct Datadump {
+    recipes: Vec<Recipe>,
+    ingredients: Vec<Ingredient>,
+    labels: Vec<Label>,
+}
+
+impl Datadump {
+    fn strip(&mut self) {
+        let mut recipe_counter: u32 = 0;
+        let mut ingredient_counter: u32 = 0;
+        let mut label_counter: u32 = 0;
+
+        let mut recipe_table = HashMap::new();
+        let mut ingredient_table = HashMap::new();
+        let mut label_table = HashMap::new();
+
+        for mut label in self.labels.iter_mut() {
+            let new_id = format!("__label_{}", label_counter);
+            label_counter += 1;
+            label_table.insert(label.id.clone(), new_id.clone());
+            label.id = new_id;
+            label.tagged_recipes.clear();
+        }
+
+        for mut ingredient in self.ingredients.iter_mut() {
+            let new_id = format!("__ingredient_{}", ingredient_counter);
+            ingredient_counter += 1;
+            ingredient_table.insert(ingredient.id.clone(), new_id.clone());
+            ingredient.id = new_id;
+            ingredient.used_in.clear();
+        }
+
+        for mut recipe in self.recipes.iter_mut() {
+            let new_id = format!("__recipe_{}", recipe_counter);
+            recipe_counter += 1;
+            strip_ids(&mut recipe, &recipe_table, &ingredient_table, &label_table);
+            recipe_table.insert(recipe.id.clone(), new_id.clone());
+            recipe.id = new_id;
+        }
+    }
+}
+
+/// Dump all data from the remote
+async fn dump_remote(origin: &str) -> Result<Datadump, Box<dyn error::Error>> {
+    let origin_recipes = fetch_recipes(origin).await?;
+    let origin_ingredients = fetch_ingredients(origin).await?;
+    let origin_labels = fetch_labels(origin).await?;
+
+    let mut dump = Datadump::default();
+
+    let recipe_tiers = recipe_tiers(&origin_recipes);
+
+    for tier in recipe_tiers.iter() {
+        let mut tier: Vec<_> = tier.iter().cloned().collect();
+        tier.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
+
+        for recipe in tier.iter_mut() {
+            let replacement = recipe.clone();
+
+            dump.recipes.push(replacement);
+        }
+    }
+
+    dump.ingredients = origin_ingredients.iter().cloned().collect();
+    dump.ingredients
+        .sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
+
+    dump.labels = origin_labels.iter().cloned().collect();
+    dump.labels
+        .sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
+
+    Ok(dump)
+}
+
+async fn fetch_recipes(origin: &str) -> Result<HashSet<Recipe>, Box<dyn error::Error>> {
     let origin_index = ladle::recipe_index(origin, "").await?;
 
     let origin_recipes_fetches = origin_index
@@ -41,25 +118,57 @@ async fn fetch_recipes(origin :&str) -> Result<HashSet<Recipe>, Box<dyn error::E
     Ok(recipe_list)
 }
 
-/// From a list of recipes, create all referenced ingredients on the remote and output a
-/// HashMap of the indexes
-async fn gen_ingredient_table<'a>(
-    remote: &str,
-    origin_recipes: &'a HashSet<Recipe>,
-) -> HashMap<&'a str, String> {
-    let mut ingredients_indexes: Vec<&IngredientIndex> = origin_recipes
+async fn fetch_ingredients(origin: &str) -> Result<HashSet<Ingredient>, Box<dyn error::Error>> {
+    let origin_index = ladle::ingredient_index(origin, "").await?;
+
+    let origin_ingredients_fetches = origin_index
         .iter()
-        .flat_map(|recipe| recipe.requirements.iter().map(|req| &req.ingredient))
+        .map(|r| ladle::ingredient_get(origin, &r.id));
+
+    let ingredient_list = join_all(origin_ingredients_fetches)
+        .await
+        .iter()
+        .filter_map(|response| match response {
+            Ok(ingredient) => Some(ingredient.to_owned()),
+            Err(message) => {
+                log::error!("{}", message);
+                None
+            }
+        })
         .collect();
 
-    ingredients_indexes.sort_by(|&lhs, &rhs| lhs.name.cmp(&rhs.name));
+    Ok(ingredient_list)
+}
 
+async fn fetch_labels(origin: &str) -> Result<HashSet<Label>, Box<dyn error::Error>> {
+    let origin_index = ladle::label_index(origin, "").await?;
+
+    let origin_labels_fetches = origin_index.iter().map(|r| ladle::label_get(origin, &r.id));
+
+    let label_list = join_all(origin_labels_fetches)
+        .await
+        .iter()
+        .filter_map(|response| match response {
+            Ok(label) => Some(label.to_owned()),
+            Err(message) => {
+                log::error!("{}", message);
+                None
+            }
+        })
+        .collect();
+
+    Ok(label_list)
+}
+
+/// From a list of recipes, create all referenced ingredients on the remote and output a
+/// HashMap of the indexes
+async fn gen_ingredient_table<'a>(remote: &str, data: &'a Datadump) -> HashMap<&'a str, String> {
     let mut table: HashMap<&str, String> = HashMap::new();
 
-    for IngredientIndex { name, id } in ingredients_indexes {
-        match ladle::ingredient_create(remote, name).await {
-            Ok(ingredient) => table
-                .insert(id, ingredient.id.to_owned())
+    for ingredient in data.ingredients.iter() {
+        match ladle::ingredient_create(remote, &ingredient.name as &str).await {
+            Ok(created) => table
+                .insert(&ingredient.id as &str, created.id.to_owned())
                 .unwrap_or_default(),
             Err(message) => {
                 log::error!("{}", message);
@@ -226,32 +335,35 @@ async fn recipe_clone(
     remote_recipe.id
 }
 
-/// Clone all data from one remote to the other
-pub async fn clone(origin: &str, remote: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let remote = remote.unwrap();
-
-    let origin_recipes = fetch_recipes(origin).await?;
-
-    let ingredient_table = gen_ingredient_table(remote, &origin_recipes).await;
-    let recipe_tiers = recipe_tiers(&origin_recipes);
+async fn clone_dump(data: &Datadump, remote: &str) -> Result<(), Box<dyn error::Error>> {
     let mut recipe_table: HashMap<&str, String> = HashMap::new();
+    let ingredient_table = gen_ingredient_table(remote, &data).await;
 
-    for tier in recipe_tiers.iter() {
-        let tier: Vec<_> = tier.iter().collect();
-        let clones = tier
-            .iter()
-            .map(|recipe| recipe_clone(remote, recipe, &ingredient_table, &recipe_table));
-
-        join_all(clones)
-            .await
-            .iter()
-            .enumerate()
-            .for_each(|(index, id)| {
-                recipe_table.insert(tier[index].id.as_str(), id.to_owned());
-            });
+    for recipe in data.recipes.iter() {
+        let new_id = recipe_clone(remote, recipe, &ingredient_table, &recipe_table).await;
+        recipe_table.insert(recipe.id.as_str(), new_id);
     }
 
     Ok(())
+}
+
+/// Clone all data from one remote to the other
+async fn clone(
+    origin: &str,
+    file: Option<&str>,
+    remote: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    let dump;
+
+    if let Some(path) = file {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        dump = serde_json::from_reader(reader)?;
+    } else {
+        dump = dump_remote(origin).await?;
+    }
+
+    clone_dump(&dump, remote.unwrap()).await
 }
 
 async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
@@ -327,59 +439,10 @@ async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-/// From a list of recipes, create all referenced ingredients on the remote and output a
-/// HashMap of the indexes
-fn gen_ingredient_table_strip_ids(origin_recipes: &HashSet<Recipe>) -> HashMap<String, String> {
-    let mut ingredient_counter: u32 = 0;
-    let mut ingredients_indexes: Vec<&IngredientIndex> = origin_recipes
-        .iter()
-        .flat_map(|recipe| recipe.requirements.iter().map(|req| &req.ingredient))
-        .collect();
-
-    ingredients_indexes.sort_by(|&lhs, &rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
-
-    let mut table = HashMap::new();
-
-    for IngredientIndex { name: _, id } in ingredients_indexes {
-        table
-            .insert(
-                String::from(id),
-                format!("__ingredient_{}", ingredient_counter),
-            )
-            .unwrap_or_default();
-        ingredient_counter += 1;
-    }
-
-    table
-}
-
-/// From a list of recipes, create all referenced ingredients on the remote and output a
-/// HashMap of the indexes
-fn gen_label_table_strip_ids(origin_recipes: &HashSet<Recipe>) -> HashMap<String, String> {
-    let mut label_counter: u32 = 0;
-    let mut labels_indexes: Vec<&LabelIndex> = origin_recipes
-        .iter()
-        .flat_map(|recipe| recipe.tags.iter())
-        .collect();
-
-    labels_indexes.sort_by(|&lhs, &rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
-
-    let mut table = HashMap::new();
-
-    for LabelIndex { name: _, id } in labels_indexes {
-        table
-            .insert(String::from(id), format!("__label_{}", label_counter))
-            .unwrap_or_default();
-        label_counter += 1;
-    }
-
-    table
-}
-
 fn strip_ids(
     recipe: &mut Recipe,
-    ingredient_table: &HashMap<String, String>,
     recipe_table: &HashMap<String, String>,
+    ingredient_table: &HashMap<String, String>,
     label_table: &HashMap<String, String>,
 ) {
     let mut replaced_requirements = HashSet::new();
@@ -414,66 +477,9 @@ fn strip_ids(
     recipe.tags = replaced_tags;
 }
 
-#[derive(Debug, Serialize, Default)]
-struct Dump {
-    recipes: Vec<Recipe>,
-    ingredients: Vec<Ingredient>,
-    labels: Vec<Label>,
-}
-
-/// Dump all data from the remote
-pub async fn dump(origin: &str) -> Result<(), Box<dyn error::Error>> {
-    let origin_recipes = fetch_recipes(origin).await?;
-
-    let mut dump: Dump = Dump::default();
-    let mut recipe_counter: u32 = 0;
-
-    let ingredient_table = gen_ingredient_table_strip_ids(&origin_recipes);
-
-    for (id, replacement) in ingredient_table.iter() {
-        let mut ingredient = ladle::ingredient_get(origin, id).await?;
-
-        ingredient.id = replacement.to_owned();
-        ingredient.used_in = vec![];
-        dump.ingredients.push(ingredient);
-    }
-
-    let label_table = gen_label_table_strip_ids(&origin_recipes);
-
-    for (id, replacement) in label_table.iter() {
-        let mut label = ladle::label_get(origin, id).await?;
-
-        label.id = replacement.to_owned();
-        label.tagged_recipes = vec![];
-        dump.labels.push(label);
-    }
-
-    let recipe_tiers = recipe_tiers(&origin_recipes);
-    let mut recipe_table = HashMap::new();
-
-    for tier in recipe_tiers.iter() {
-        let mut tier: Vec<_> = tier.iter().cloned().collect();
-        tier.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
-
-        for recipe in tier.iter_mut() {
-            let mut replacement = recipe.clone();
-            let replacement_id: String = format!("__recipe_{}", recipe_counter);
-            recipe_counter += 1;
-
-            strip_ids(
-                &mut replacement,
-                &ingredient_table,
-                &recipe_table,
-                &label_table,
-            );
-
-            recipe_table.insert(String::from(&recipe.id), replacement_id.clone());
-            replacement.id = replacement_id;
-
-            dump.recipes.push(replacement);
-        }
-    }
-
+async fn dump(origin: &str) -> Result<(), Box<dyn error::Error>> {
+    let mut dump = dump_remote(origin).await?;
+    dump.strip();
     println!("{}", serde_json::to_string(&dump)?);
     Ok(())
 }
