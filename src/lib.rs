@@ -59,7 +59,7 @@ async fn post<
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    let response = client.post(url).form(&params).send().await?;
+    let response = client.post(url).json(&params).send().await?;
     let status_code = response.status();
 
     log::debug!("POST {} {:?} -> {}", url, params, status_code);
@@ -85,7 +85,7 @@ async fn put<
 ) -> Result<T, Box<dyn Error>> {
     let client = Client::new();
 
-    let response = client.put(url).form(&params).send().await?;
+    let response = client.put(url).json(&params).send().await?;
     let status_code = response.status();
 
     log::debug!("PUT {} {:?} -> {}", url, params, status_code);
