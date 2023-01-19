@@ -1,3 +1,4 @@
+use clap::Subcommand;
 use futures::future::join_all;
 use ladle::models::{Dependency, Ingredient, Label, LabelIndex, Recipe, RecipeIndex};
 use serde::{Deserialize, Serialize};
@@ -5,19 +6,32 @@ use std::collections::{HashMap, HashSet};
 use std::error;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::{Path, PathBuf};
 use unidecode::unidecode;
 
-pub async fn maintenance_actions(
+/// Maintenance family of commands
+#[derive(Subcommand)]
+pub enum MaintenanceSubCommands {
+    Dump,
+    Clean,
+    Clone {
+        #[arg(short, long, value_name = "FILE")]
+        file: Option<PathBuf>,
+
+        remote: String,
+    },
+}
+
+pub async fn actions(
     origin: &str,
-    matches: &clap::ArgMatches<'static>,
+    cmd: MaintenanceSubCommands,
 ) -> Result<(), Box<dyn error::Error>> {
-    match matches.subcommand() {
-        ("clone", Some(sub_m)) => {
-            clone(origin, sub_m.value_of("file"), sub_m.value_of("remote")).await
+    match cmd {
+        MaintenanceSubCommands::Dump => dump(origin).await,
+        MaintenanceSubCommands::Clean => clean(origin).await,
+        MaintenanceSubCommands::Clone { file, remote } => {
+            clone(origin, file.as_deref(), &remote).await
         }
-        ("clean", Some(_sub_m)) => clean(origin).await,
-        ("dump", Some(_sub_m)) => dump(origin).await,
-        (&_, _) => todo!(),
     }
 }
 
@@ -360,8 +374,8 @@ async fn clone_dump(data: &Datadump, remote: &str) -> Result<(), Box<dyn error::
 /// Clone all data from one remote to the other
 async fn clone(
     origin: &str,
-    file: Option<&str>,
-    remote: Option<&str>,
+    file: Option<&Path>,
+    remote: &str,
 ) -> Result<(), Box<dyn error::Error>> {
     let dump;
 
@@ -373,7 +387,7 @@ async fn clone(
         dump = dump_remote(origin).await?;
     }
 
-    clone_dump(&dump, remote.unwrap()).await
+    clone_dump(&dump, remote).await
 }
 
 async fn clean(origin: &str) -> Result<(), Box<dyn error::Error>> {

@@ -1,46 +1,106 @@
-use crate::{is_true, ChopstickError};
+use crate::ChopstickError;
+use clap::Subcommand;
 use futures::future::join_all;
 use ladle::models::{Ingredient, IngredientIndex};
 use std::error;
 
-pub async fn ingredient_actions(
+/// Ingredient fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum IngredientSubCommands {
+    List {
+        /// Ingredient name pattern to match in list
+        pattern: Option<String>,
+    },
+
+    Show {
+        /// Ingredient name, id or identifying pattern
+        clue: String,
+    },
+
+    /// Create a ingredient
+    Create {
+        /// Ingredient name
+        name: String,
+
+        dairy: bool,
+        meat: bool,
+        gluten: bool,
+        animal_product: bool,
+    },
+
+    /// Edit a ingredient
+    Edit {
+        /// Ingredient name, id or identifying pattern
+        clue: String,
+
+        #[arg(short, long)]
+        name: Option<String>,
+
+        #[arg(short, long)]
+        dairy: Option<bool>,
+
+        #[arg(short, long)]
+        meat: Option<bool>,
+
+        #[arg(short, long)]
+        gluten: Option<bool>,
+
+        #[arg(short, long)]
+        animal_product: Option<bool>,
+    },
+
+    /// Delete ingredient
+    Delete {
+        /// Ingredient id
+        id: String,
+    },
+
+    Merge {
+        unified_clue: String,
+        obsolete_clue: String,
+    },
+}
+
+pub async fn actions(
     origin: &str,
-    matches: &clap::ArgMatches<'static>,
+    cmd: IngredientSubCommands,
 ) -> Result<(), Box<dyn error::Error>> {
-    match matches.subcommand() {
-        ("list", Some(sub_m)) => ingredient_list(origin, sub_m.value_of("pattern")).await,
-        ("show", Some(sub_m)) => ingredient_show(origin, sub_m.value_of("ingredient")).await,
-        ("create", Some(sub_m)) => {
-            ingredient_create(
-                origin,
-                sub_m.value_of("name"),
-                sub_m.is_present("dairy"),
-                sub_m.is_present("meat"),
-                sub_m.is_present("gluten"),
-                sub_m.is_present("animal_product"),
-            )
-            .await
+    match cmd {
+        IngredientSubCommands::List { pattern } => {
+            ingredient_list(origin, pattern.as_deref()).await
         }
-        ("edit", Some(sub_m)) => {
+        IngredientSubCommands::Show { clue } => ingredient_show(origin, &clue).await,
+        IngredientSubCommands::Create {
+            name,
+            dairy,
+            meat,
+            gluten,
+            animal_product,
+        } => ingredient_create(origin, &name, dairy, meat, gluten, animal_product).await,
+        IngredientSubCommands::Edit {
+            clue,
+            name,
+            dairy,
+            meat,
+            gluten,
+            animal_product,
+        } => {
             ingredient_edit(
                 origin,
-                sub_m.value_of("ingredient"),
-                sub_m.value_of("name"),
-                sub_m.value_of("dairy"),
-                sub_m.value_of("meat"),
-                sub_m.value_of("gluten"),
-                sub_m.value_of("animal_product"),
+                &clue,
+                name.as_deref(),
+                dairy,
+                meat,
+                gluten,
+                animal_product,
             )
             .await
         }
-        ("delete", Some(sub_m)) => ingredient_delete(origin, sub_m.value_of("ingredient")).await,
-        ("merge", Some(sub_m)) => {
-            ingredient_merge(origin, sub_m.value_of("target"), sub_m.value_of("obsolete")).await
-        }
-        _ => {
-            println!("{}", matches.usage());
-            Ok(())
-        }
+        IngredientSubCommands::Delete { id } => ingredient_delete(origin, &id).await,
+        IngredientSubCommands::Merge {
+            unified_clue,
+            obsolete_clue,
+        } => ingredient_merge(origin, &unified_clue, &obsolete_clue).await,
     }
 }
 
@@ -53,8 +113,8 @@ async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<
     Ok(())
 }
 
-async fn ingredient_show(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+async fn ingredient_show(origin: &str, id: &str) -> Result<(), Box<dyn error::Error>> {
+    let ingredient = ingredient_identify(origin, id, false).await?;
 
     let Ingredient {
         id,
@@ -76,41 +136,41 @@ async fn ingredient_show(origin: &str, id: Option<&str>) -> Result<(), Box<dyn e
 
 async fn ingredient_create(
     origin: &str,
-    name: Option<&str>,
+    name: &str,
     dairy: bool,
     meat: bool,
     gluten: bool,
     animal_product: bool,
 ) -> Result<(), Box<dyn error::Error>> {
-    ladle::ingredient_create(origin, name.unwrap(), dairy, meat, gluten, animal_product).await?;
+    ladle::ingredient_create(origin, name, dairy, meat, gluten, animal_product).await?;
     Ok(())
 }
 
 async fn ingredient_edit(
     origin: &str,
-    id: Option<&str>,
+    id: &str,
     name: Option<&str>,
-    dairy: Option<&str>,
-    meat: Option<&str>,
-    gluten: Option<&str>,
-    animal_product: Option<&str>,
+    dairy: Option<bool>,
+    meat: Option<bool>,
+    gluten: Option<bool>,
+    animal_product: Option<bool>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+    let ingredient = ingredient_identify(origin, id, false).await?;
 
     ladle::ingredient_update(
         origin,
         &ingredient.id,
         name,
-        is_true(dairy),
-        is_true(meat),
-        is_true(gluten),
-        is_true(animal_product),
+        dairy,
+        meat,
+        gluten,
+        animal_product,
     )
     .await
 }
 
-async fn ingredient_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
+async fn ingredient_delete(origin: &str, id: &str) -> Result<(), Box<dyn error::Error>> {
+    let ingredient = ingredient_identify(origin, id, false).await?;
 
     ladle::ingredient_delete(origin, &ingredient.id).await
 }
@@ -119,15 +179,11 @@ async fn ingredient_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn
 /// then delete the obsolete ingredient
 async fn ingredient_merge(
     origin: &str,
-    target_clue: Option<&str>,
-    obsolete_clue: Option<&str>,
+    target_clue: &str,
+    obsolete_clue: &str,
 ) -> Result<(), Box<dyn error::Error>> {
-    let target_id = ingredient_identify(origin, target_clue.unwrap(), false)
-        .await?
-        .id;
-    let obsolete_id = ingredient_identify(origin, obsolete_clue.unwrap(), false)
-        .await?
-        .id;
+    let target_id = ingredient_identify(origin, target_clue, false).await?.id;
+    let obsolete_id = ingredient_identify(origin, obsolete_clue, false).await?.id;
 
     let uses = ladle::ingredient_get(origin, &obsolete_id).await?;
 

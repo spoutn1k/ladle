@@ -1,23 +1,49 @@
 use crate::ChopstickError;
+use clap::Subcommand;
 use ladle::models::{Label, LabelIndex};
 use std::error;
 
-pub async fn label_actions(
-    origin: &str,
-    matches: &clap::ArgMatches<'static>,
-) -> Result<(), Box<dyn error::Error>> {
-    match matches.subcommand() {
-        ("list", Some(sub_m)) => label_list(origin, sub_m.value_of("pattern")).await,
-        ("show", Some(sub_m)) => label_show(origin, sub_m.value_of("label")).await,
-        ("create", Some(sub_m)) => label_create(origin, sub_m.value_of("name")).await,
-        ("edit", Some(sub_m)) => {
-            label_edit(origin, sub_m.value_of("label"), sub_m.value_of("name")).await
-        }
-        ("delete", Some(sub_m)) => label_delete(origin, sub_m.value_of("label")).await,
-        _ => {
-            println!("{}", matches.usage());
-            Ok(())
-        }
+/// Label fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum LabelSubCommands {
+    List {
+        /// Label name pattern to match in list
+        pattern: Option<String>,
+    },
+
+    Show {
+        /// Label name, id or identifying pattern
+        clue: String,
+    },
+
+    /// Create a label
+    Create {
+        /// Label name
+        name: String,
+    },
+
+    /// Edit a label
+    Edit {
+        /// Label name, id or identifying pattern
+        clue: String,
+
+        #[arg(short, long)]
+        name: Option<String>,
+    },
+
+    /// Delete label
+    Delete {
+        /// Label id
+        id: String,
+    },
+}
+pub async fn actions(origin: &str, cmd: LabelSubCommands) -> Result<(), Box<dyn error::Error>> {
+    match cmd {
+        LabelSubCommands::List { pattern } => label_list(origin, pattern.as_deref()).await,
+        LabelSubCommands::Show { clue } => label_show(origin, &clue).await,
+        LabelSubCommands::Create { name } => label_create(origin, &name).await,
+        LabelSubCommands::Edit { clue, name } => label_edit(origin, &clue, name.as_deref()).await,
+        LabelSubCommands::Delete { id } => label_delete(origin, &id).await,
     }
 }
 
@@ -30,8 +56,8 @@ async fn label_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn e
     Ok(())
 }
 
-async fn label_show(origin: &str, label_clue: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let label = label_identify(origin, label_clue.unwrap(), false).await?;
+async fn label_show(origin: &str, label_clue: &str) -> Result<(), Box<dyn error::Error>> {
+    let label = label_identify(origin, label_clue, false).await?;
 
     let Label {
         id: _,
@@ -49,24 +75,24 @@ async fn label_show(origin: &str, label_clue: Option<&str>) -> Result<(), Box<dy
     Ok(())
 }
 
-async fn label_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    ladle::label_create(origin, name.unwrap()).await?;
+async fn label_create(origin: &str, name: &str) -> Result<(), Box<dyn error::Error>> {
+    ladle::label_create(origin, name).await?;
     Ok(())
 }
 
 async fn label_edit(
     origin: &str,
-    label_clue: Option<&str>,
+    label_clue: &str,
     name: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let label = label_identify(origin, label_clue.unwrap(), false).await?;
+    let label = label_identify(origin, label_clue, false).await?;
 
     ladle::label_update(origin, &label.id, name.unwrap()).await?;
     Ok(())
 }
 
-async fn label_delete(origin: &str, label_clue: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let label = label_identify(origin, label_clue.unwrap(), false).await?;
+async fn label_delete(origin: &str, label_clue: &str) -> Result<(), Box<dyn error::Error>> {
+    let label = label_identify(origin, label_clue, false).await?;
 
     ladle::label_delete(origin, &label.id).await
 }

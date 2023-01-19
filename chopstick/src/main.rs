@@ -3,23 +3,11 @@ mod label_actions;
 mod maintenance_actions;
 mod recipe_actions;
 
+use clap::{Parser, Subcommand};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 use std::error::Error;
 use std::fmt;
-
-#[macro_use]
-extern crate clap;
-
-fn is_true(opt: Option<&str>) -> Option<bool> {
-    if let Some(value) = opt {
-        if vec!["True", "true"].contains(&value) {
-            return Some(true);
-        }
-        return Some(false);
-    }
-    return None;
-}
 
 #[derive(Debug)]
 struct ChopstickError(String);
@@ -32,168 +20,50 @@ impl fmt::Display for ChopstickError {
 
 impl Error for ChopstickError {}
 
+/// Simple program to greet a person
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Turn debugging information on
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+
+    /// Server URL to contact
+    #[arg(short, long)]
+    server: Option<String>,
+
+    #[command(subcommand)]
+    command: Subcommands,
+}
+
+#[derive(Subcommand)]
+enum Subcommands {
+    Recipe {
+        #[command(subcommand)]
+        recipe: recipe_actions::RecipeSubCommands,
+    },
+
+    Ingredient {
+        #[command(subcommand)]
+        ingredient: ingredient_actions::IngredientSubCommands,
+    },
+
+    Label {
+        #[command(subcommand)]
+        label: label_actions::LabelSubCommands,
+    },
+
+    Maintenance {
+        #[command(subcommand)]
+        maintenance: maintenance_actions::MaintenanceSubCommands,
+    },
+}
+
 #[tokio::main]
 async fn main() {
-    let matches = clap_app!(Chopstick =>
-        (version: "0.1")
-        (author: "JBS <jb.skutnik@gmail.com>")
-        (about: "Get data from a knife server")
-        (@arg verbose: -v --verbose "Enable debug log")
-        (@arg server: -s --server +takes_value "Remote knife server URL")
-        (@subcommand remote =>
-            (about: "maintenance")
-            (@subcommand clone =>
-                (about: "clone recipes")
-                (@arg file: --file +takes_value "JSON file with data to clone on destination")
-                (@arg remote: +required "URL of the destination")
-            )
-            (@subcommand clean =>
-                (about: "delete unused ingredients and labels")
-            )
-            (@subcommand dump =>
-                (about: "dump all data")
-            )
-        )
-        (@subcommand recipe =>
-            (about: "access recipes")
-            (@subcommand list =>
-                (about: "list recipes")
-                (@arg pattern: "list recipes matching a pattern")
-            )
-            (@subcommand show =>
-                (about: "show details about a recipe")
-                (@arg recipe: +required "target recipe id or name")
-            )
-            (@subcommand create =>
-                (about: "create a new recipe")
-                (@arg name: +required "target recipe name")
-            )
-            (@subcommand edit =>
-                (about: "edit a recipe")
-                (@arg recipe: +required "target recipe id or name")
-                (@arg name: -n --name +takes_value "new recipe name")
-                (@arg author: -a --author +takes_value "new recipe author")
-                (@arg directions: -d --directions +takes_value "new recipe directions")
-            )
-            (@subcommand delete =>
-                (about: "delete a recipe")
-                (@arg recipe: +required "target recipe id or name")
-            )
-            (@subcommand tag =>
-                (about: "manage recipe tags")
-                (@subcommand add =>
-                    (about: "tag a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg label: +required "label to tag with")
-                )
-                (@subcommand delete =>
-                    (about: "remove a tag from a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg label: +required "label to untag")
-                )
-            )
-            (@subcommand requirement =>
-                (about: "edit recipe requirements")
-                (@subcommand create =>
-                    (about: "add a requirement to a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg ingredient: +required "required ingredient id or name")
-                    (@arg quantity: +required "required quantity")
-                )
-                (@subcommand update =>
-                    (about: "update a requirement to a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg ingredient: +required "required ingredient id or name")
-                    (@arg quantity: +required "required quantity")
-                )
-                (@subcommand delete =>
-                    (about: "delete a requirement from a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg ingredient: +required "required ingredient id or name")
-                )
-            )
-            (@subcommand dependency =>
-                (about: "edit recipe dependencies")
-                (@subcommand create =>
-                    (about: "add a dependency to a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg required: +required "required recipe id or name")
-                    (@arg quantity: -q --quantity +takes_value "required quantity")
-                    (@arg optional: -o --optional "mark as optional")
-                )
-                (@subcommand edit =>
-                    (about: "edit a dependency from a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg required: +required "required recipe id or name")
-                    (@arg quantity: -q --quantity +takes_value "new required quantity")
-                    (@arg optional: -o --optional +takes_value "set optional status")
-                )
-                (@subcommand delete =>
-                    (about: "remove a dependency from a recipe")
-                    (@arg recipe: +required "target recipe id or name")
-                    (@arg required: +required "required recipe id or name")
-                )
-            )
-        )
-        (@subcommand ingredient =>
-            (about: "Ingredients-related commands")
-            (@subcommand list =>
-                (about: "List existing ingredients")
-                (@arg pattern: "List only ingredients with names matching the given pattern")
-            )
-            (@subcommand show =>
-                (about: "show details about an ingredient")
-                (@arg ingredient: +required "target ingredient id or name")
-            )
-            (@subcommand create =>
-                (about: "create an ingredient")
-                (@arg name: +required "target ingredient name")
-                (@arg dairy: --dairy "set dairy classification to true")
-            )
-            (@subcommand edit =>
-                (about: "edit an ingredient")
-                (@arg ingredient: +required "target ingredient id or name")
-                (@arg name: -n --name +takes_value "new ingredient name")
-                (@arg dairy: --dairy +takes_value "set dairy classification to true or false")
-            )
-            (@subcommand delete =>
-                (about: "delete an ingredient")
-                (@arg ingredient: +required "target ingredient id or name")
-            )
-            (@subcommand merge =>
-                (about: "merge two ingredients")
-                (@arg target: +required "target ingredient id or name")
-                (@arg obsolete: +required "target ingredient id or name")
-            )
-        )
-        (@subcommand label =>
-            (about: "Label-related commands")
-            (@subcommand list =>
-                (about: "list existing labels")
-                (@arg pattern: "list labels whose name match the given pattern")
-            )
-            (@subcommand show =>
-                (about: "list recipes tagged with a given label")
-                (@arg label: +required "target label id or name")
-            )
-            (@subcommand create =>
-                (about: "create a label")
-                (@arg name: +required "target label name")
-            )
-            (@subcommand edit =>
-                (about: "edit a label")
-                (@arg label: +required "target label id or name")
-                (@arg name: -n --name +takes_value "new label name")
-            )
-            (@subcommand delete =>
-                (about: "delete a label")
-                (@arg label: +required "target label id or name")
-            )
-        )
-    )
-    .get_matches();
+    let matches = Cli::parse();
 
-    if matches.is_present("verbose") {
+    if matches.verbose == 1 {
         SimpleLogger::new()
             .with_module_level("ladle", LevelFilter::Debug)
             .with_module_level("chopstick", LevelFilter::Debug)
@@ -224,24 +94,20 @@ async fn main() {
         }
     }
 
-    if let Some(server) = matches.value_of("server") {
+    if let Some(server) = matches.server {
         origin = Some(server.to_owned());
     }
 
     if let Some(server) = origin {
         let server = server.as_str();
-        let exec = match matches.subcommand() {
-            ("recipe", Some(sub_m)) => recipe_actions::recipe_actions(server, &sub_m).await,
-            ("ingredient", Some(sub_m)) => {
-                ingredient_actions::ingredient_actions(server, &sub_m).await
+        let exec = match matches.command {
+            Subcommands::Recipe { recipe } => recipe_actions::actions(server, recipe).await,
+            Subcommands::Ingredient { ingredient } => {
+                ingredient_actions::actions(server, ingredient).await
             }
-            ("label", Some(sub_m)) => label_actions::label_actions(server, &sub_m).await,
-            ("remote", Some(sub_m)) => {
-                maintenance_actions::maintenance_actions(server, &sub_m).await
-            }
-            _ => {
-                println!("{}", matches.usage());
-                Ok(())
+            Subcommands::Label { label } => label_actions::actions(server, label).await,
+            Subcommands::Maintenance { maintenance } => {
+                maintenance_actions::actions(server, maintenance).await
             }
         };
 

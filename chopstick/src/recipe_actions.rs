@@ -1,108 +1,331 @@
 use crate::ingredient_actions::ingredient_identify;
 use crate::label_actions::label_identify;
-use crate::{is_true, ChopstickError};
+use crate::ChopstickError;
+use clap::Subcommand;
 use ladle::models::RecipeIndex;
 use std::error;
 
-pub async fn recipe_actions(
+/// Recipe fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum RecipeSubCommands {
+    List {
+        /// Recipe name pattern to match in list
+        pattern: Option<String>,
+    },
+
+    Show {
+        /// Recipe name, id or identifying pattern
+        clue: String,
+    },
+
+    /// Create a recipe
+    Create {
+        /// Recipe name
+        name: String,
+
+        /// Recipe author
+        #[arg(short, long)]
+        author: Option<String>,
+
+        /// Recipe directions
+        #[arg(short, long)]
+        directions: Option<String>,
+
+        /// Recipe information
+        #[arg(short, long)]
+        information: Option<String>,
+    },
+
+    /// Edit a recipe
+    Edit {
+        /// Recipe name, id or identifying pattern
+        clue: String,
+
+        /// Change recipe name
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Change recipe author
+        #[arg(short, long)]
+        author: Option<String>,
+
+        /// Change recipe directions
+        #[arg(short, long)]
+        directions: Option<String>,
+
+        /// Change recipe information
+        #[arg(short, long)]
+        information: Option<String>,
+    },
+
+    /// Delete recipe
+    Delete {
+        /// Recipe id
+        id: String,
+    },
+
+    Requirement {
+        #[command(subcommand)]
+        requirement: RequirementSubCommands,
+    },
+
+    Dependency {
+        #[command(subcommand)]
+        dependency: DependencySubCommands,
+    },
+
+    Tag {
+        #[command(subcommand)]
+        tag: TagSubCommands,
+    },
+}
+
+/// Requirement fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum RequirementSubCommands {
+    /// Create a requirement
+    Create {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Ingredient name, id or identifying pattern
+        ingredient_clue: String,
+
+        /// Required quantity
+        quantity: String,
+
+        /// Optional status
+        #[arg(short, long)]
+        optional: bool,
+    },
+
+    /// Edit a requirement
+    Edit {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Ingredient name, id or identifying pattern
+        ingredient_clue: String,
+
+        /// Change the required quantity
+        #[arg(short, long)]
+        quantity: Option<String>,
+
+        /// Change the optional status
+        #[arg(short, long)]
+        optional: Option<bool>,
+    },
+
+    /// Delete a requirement
+    Delete {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Ingredient name, id or identifying pattern
+        ingredient_clue: String,
+    },
+}
+
+/// Dependency fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum DependencySubCommands {
+    /// Create a dependency
+    Create {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Recipe name, id or identifying pattern
+        required_clue: String,
+
+        /// Required quantity
+        quantity: Option<String>,
+
+        /// Optional status
+        #[arg(short, long)]
+        optional: bool,
+    },
+
+    /// Edit a dependency
+    Edit {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Recipe name, id or identifying pattern
+        required_clue: String,
+
+        /// Change the required quantity
+        #[arg(short, long)]
+        quantity: Option<String>,
+
+        /// Change the optional status
+        #[arg(short, long)]
+        optional: Option<bool>,
+    },
+
+    /// Delete a dependency
+    Delete {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Recipe name, id or identifying pattern
+        required_clue: String,
+    },
+}
+
+/// Tag fetching and edition family of commands
+#[derive(Subcommand)]
+pub enum TagSubCommands {
+    /// Create a tag
+    Create {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Label name
+        label_name: String,
+    },
+
+    /// Delete a tag
+    Delete {
+        /// Recipe name, id or identifying pattern
+        recipe_clue: String,
+
+        /// Label name, id or identifying pattern
+        label_clue: String,
+    },
+}
+
+pub async fn requirement_actions(
     origin: &str,
-    matches: &clap::ArgMatches<'static>,
+    cmd: RequirementSubCommands,
 ) -> Result<(), Box<dyn error::Error>> {
-    match matches.subcommand() {
-        ("list", Some(sub_m)) => recipe_list(origin, sub_m.value_of("pattern")).await,
-        ("show", Some(sub_m)) => recipe_show(origin, sub_m.value_of("recipe")).await,
-        ("create", Some(sub_m)) => {
+    match cmd {
+        RequirementSubCommands::Create {
+            recipe_clue,
+            ingredient_clue,
+            quantity,
+            optional,
+        } => requirement_add(origin, &recipe_clue, &ingredient_clue, &quantity, optional).await,
+        RequirementSubCommands::Edit {
+            recipe_clue,
+            ingredient_clue,
+            quantity,
+            optional,
+        } => {
+            requirement_update(
+                origin,
+                &recipe_clue,
+                &ingredient_clue,
+                quantity.as_deref(),
+                optional,
+            )
+            .await
+        }
+        RequirementSubCommands::Delete {
+            recipe_clue,
+            ingredient_clue,
+        } => requirement_delete(origin, &recipe_clue, &ingredient_clue).await,
+    }
+}
+
+pub async fn dependency_actions(
+    origin: &str,
+    cmd: DependencySubCommands,
+) -> Result<(), Box<dyn error::Error>> {
+    match cmd {
+        DependencySubCommands::Create {
+            recipe_clue,
+            required_clue,
+            quantity,
+            optional,
+        } => {
+            dependency_create(
+                origin,
+                &recipe_clue,
+                &required_clue,
+                quantity.as_deref(),
+                optional,
+            )
+            .await
+        }
+        DependencySubCommands::Edit {
+            recipe_clue,
+            required_clue,
+            quantity,
+            optional,
+        } => {
+            dependency_edit(
+                origin,
+                &recipe_clue,
+                &required_clue,
+                quantity.as_deref(),
+                optional,
+            )
+            .await
+        }
+        DependencySubCommands::Delete {
+            recipe_clue,
+            required_clue,
+        } => dependency_delete(origin, &recipe_clue, &required_clue).await,
+    }
+}
+
+pub async fn tag_actions(origin: &str, cmd: TagSubCommands) -> Result<(), Box<dyn error::Error>> {
+    match cmd {
+        TagSubCommands::Create {
+            recipe_clue,
+            label_name,
+        } => recipe_tag(origin, &recipe_clue, &label_name).await,
+        TagSubCommands::Delete {
+            recipe_clue,
+            label_clue,
+        } => recipe_untag(origin, &recipe_clue, &label_clue).await,
+    }
+}
+
+pub async fn actions(origin: &str, cmd: RecipeSubCommands) -> Result<(), Box<dyn error::Error>> {
+    match cmd {
+        RecipeSubCommands::List { pattern } => recipe_list(origin, pattern.as_deref()).await,
+        RecipeSubCommands::Show { clue } => recipe_show(origin, &clue).await,
+        RecipeSubCommands::Create {
+            name,
+            author,
+            directions,
+            information,
+        } => {
             recipe_create(
                 origin,
-                sub_m.value_of("name"),
-                sub_m.value_of("author"),
-                sub_m.value_of("directions"),
-                sub_m.value_of("information"),
+                &name,
+                author.as_deref(),
+                directions.as_deref(),
+                information.as_deref(),
             )
             .await
         }
-        ("edit", Some(sub_m)) => {
+        RecipeSubCommands::Edit {
+            clue,
+            name,
+            author,
+            directions,
+            information,
+        } => {
             recipe_edit(
                 origin,
-                sub_m.value_of("recipe"),
-                sub_m.value_of("name"),
-                sub_m.value_of("author"),
-                sub_m.value_of("directions"),
-                sub_m.value_of("information"),
+                &clue,
+                name.as_deref(),
+                author.as_deref(),
+                directions.as_deref(),
+                information.as_deref(),
             )
             .await
         }
-        ("delete", Some(sub_m)) => recipe_delete(origin, sub_m.value_of("recipe")).await,
-        ("requirement", Some(sub_m)) => match sub_m.subcommand() {
-            ("create", Some(sub_m)) => {
-                requirement_add(
-                    origin,
-                    sub_m.value_of("recipe"),
-                    sub_m.value_of("ingredient"),
-                    sub_m.value_of("quantity"),
-                    sub_m.is_present("optional"),
-                )
-                .await
-            }
-            ("update", Some(sub_m)) => {
-                requirement_update(
-                    origin,
-                    sub_m.value_of("recipe"),
-                    sub_m.value_of("ingredient"),
-                    sub_m.value_of("quantity"),
-                    sub_m.value_of("optional"),
-                )
-                .await
-            }
-            ("delete", Some(sub_m)) => {
-                requirement_delete(
-                    origin,
-                    sub_m.value_of("recipe"),
-                    sub_m.value_of("ingredient"),
-                )
-                .await
-            }
-            (&_, _) => todo!(),
-        },
-        ("dependency", Some(sub_m)) => match sub_m.subcommand() {
-            ("create", Some(sub_m)) => {
-                recipe_link(
-                    origin,
-                    sub_m.value_of("recipe"),
-                    sub_m.value_of("required"),
-                    sub_m.value_of("quantity"),
-                    sub_m.is_present("optional"),
-                )
-                .await
-            }
-            ("edit", Some(sub_m)) => {
-                recipe_edit_link(
-                    origin,
-                    sub_m.value_of("recipe"),
-                    sub_m.value_of("required"),
-                    sub_m.value_of("quantity"),
-                    sub_m.value_of("optional"),
-                )
-                .await
-            }
-            ("delete", Some(sub_m)) => {
-                recipe_unlink(origin, sub_m.value_of("recipe"), sub_m.value_of("required")).await
-            }
-            (&_, _) => todo!(),
-        },
-        ("tag", Some(sub_m)) => match sub_m.subcommand() {
-            ("add", Some(sub_m)) => {
-                recipe_tag(origin, sub_m.value_of("recipe"), sub_m.value_of("label")).await
-            }
-            ("delete", Some(sub_m)) => {
-                recipe_untag(origin, sub_m.value_of("recipe"), sub_m.value_of("label")).await
-            }
-            (&_, _) => todo!(),
-        },
-        _ => {
-            println!("{}", matches.usage());
-            Ok(())
+        RecipeSubCommands::Delete { id } => recipe_delete(origin, &id).await,
+        RecipeSubCommands::Requirement { requirement } => {
+            requirement_actions(origin, requirement).await
         }
+        RecipeSubCommands::Dependency { dependency } => {
+            dependency_actions(origin, dependency).await
+        }
+        RecipeSubCommands::Tag { tag } => tag_actions(origin, tag).await,
     }
 }
 
@@ -116,8 +339,8 @@ async fn recipe_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn 
     Ok(())
 }
 
-async fn recipe_show(origin: &str, recipe_clue: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+async fn recipe_show(origin: &str, recipe_clue: &str) -> Result<(), Box<dyn error::Error>> {
+    let recipe = recipe_identify(origin, recipe_clue).await?;
     let recipe_data = ladle::recipe_get(origin, &recipe.id).await?;
 
     println!("{}", serde_json::to_string(&recipe_data)?);
@@ -126,14 +349,14 @@ async fn recipe_show(origin: &str, recipe_clue: Option<&str>) -> Result<(), Box<
 
 async fn recipe_create(
     origin: &str,
-    name: Option<&str>,
+    name: &str,
     author: Option<&str>,
     directions: Option<&str>,
     information: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
     ladle::recipe_create(
         origin,
-        name.unwrap(),
+        name,
         author.unwrap_or(""),
         directions.unwrap_or(""),
         information.unwrap_or(""),
@@ -144,82 +367,68 @@ async fn recipe_create(
 
 async fn recipe_edit(
     origin: &str,
-    recipe_clue: Option<&str>,
+    recipe_clue: &str,
     name: Option<&str>,
     author: Option<&str>,
     directions: Option<&str>,
     information: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
 
     ladle::recipe_update(origin, &recipe.id, name, author, directions, information).await?;
     Ok(())
 }
 
-async fn recipe_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    ladle::recipe_delete(origin, id.unwrap()).await
+async fn recipe_delete(origin: &str, id: &str) -> Result<(), Box<dyn error::Error>> {
+    ladle::recipe_delete(origin, id).await
 }
 
 async fn requirement_add(
     origin: &str,
-    recipe_clue: Option<&str>,
-    ingredient_clue: Option<&str>,
-    quantity: Option<&str>,
+    recipe_clue: &str,
+    ingredient_clue: &str,
+    quantity: &str,
     optional: bool,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let ingredient = ingredient_identify(origin, ingredient_clue.unwrap(), false).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let ingredient = ingredient_identify(origin, ingredient_clue, false).await?;
 
-    ladle::requirement_create(
-        origin,
-        &recipe.id,
-        &ingredient.id,
-        quantity.unwrap(),
-        optional,
-    )
-    .await
+    ladle::requirement_create(origin, &recipe.id, &ingredient.id, quantity, optional).await
 }
 
 async fn requirement_update(
     origin: &str,
-    recipe_clue: Option<&str>,
-    ingredient_clue: Option<&str>,
+    recipe_clue: &str,
+    ingredient_clue: &str,
     quantity: Option<&str>,
-    optional: Option<&str>,
+    optional: Option<bool>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let ingredient = ingredient_identify(origin, ingredient_clue.unwrap(), false).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let ingredient = ingredient_identify(origin, ingredient_clue, false).await?;
 
-    ladle::requirement_update(
-        origin,
-        &recipe.id,
-        &ingredient.id,
-        quantity,
-        is_true(optional),
-    )
-    .await
+    ladle::requirement_update(origin, &recipe.id, &ingredient.id, quantity, optional).await
 }
 
 async fn requirement_delete(
     origin: &str,
-    recipe_clue: Option<&str>,
-    ingredient_clue: Option<&str>,
+    recipe_clue: &str,
+    ingredient_clue: &str,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let ingredient = ingredient_identify(origin, ingredient_clue.unwrap(), false).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let ingredient = ingredient_identify(origin, ingredient_clue, false).await?;
 
     ladle::requirement_delete(origin, &recipe.id, &ingredient.id).await
 }
 
-async fn recipe_link(
+async fn dependency_create(
     origin: &str,
-    recipe_clue: Option<&str>,
-    required_clue: Option<&str>,
+    recipe_clue: &str,
+    required_clue: &str,
     quantity: Option<&str>,
     optional: bool,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let required = recipe_identify(origin, required_clue.unwrap()).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let required = recipe_identify(origin, required_clue).await?;
 
     ladle::dependency_create(
         origin,
@@ -231,54 +440,47 @@ async fn recipe_link(
     .await
 }
 
-async fn recipe_edit_link(
+async fn dependency_edit(
     origin: &str,
-    recipe_clue: Option<&str>,
-    required_clue: Option<&str>,
+    recipe_clue: &str,
+    required_clue: &str,
     quantity: Option<&str>,
-    optional: Option<&str>,
+    optional: Option<bool>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let required = recipe_identify(origin, required_clue.unwrap()).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let required = recipe_identify(origin, required_clue).await?;
 
-    ladle::dependency_edit(
-        origin,
-        &recipe.id,
-        &required.id,
-        quantity,
-        is_true(optional),
-    )
-    .await
+    ladle::dependency_edit(origin, &recipe.id, &required.id, quantity, optional).await
 }
 
-async fn recipe_unlink(
+async fn dependency_delete(
     origin: &str,
-    recipe_clue: Option<&str>,
-    required_clue: Option<&str>,
+    recipe_clue: &str,
+    required_clue: &str,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let required = recipe_identify(origin, required_clue.unwrap()).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let required = recipe_identify(origin, required_clue).await?;
 
     ladle::dependency_delete(origin, &recipe.id, &required.id).await
 }
 
 async fn recipe_tag(
     origin: &str,
-    recipe_clue: Option<&str>,
-    label: Option<&str>,
+    recipe_clue: &str,
+    label: &str,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
 
-    ladle::recipe_tag(origin, &recipe.id, &label.unwrap()).await
+    ladle::recipe_tag(origin, &recipe.id, &label).await
 }
 
 async fn recipe_untag(
     origin: &str,
-    recipe_clue: Option<&str>,
-    label_clue: Option<&str>,
+    recipe_clue: &str,
+    label_clue: &str,
 ) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
-    let label = label_identify(origin, label_clue.unwrap(), false).await?;
+    let recipe = recipe_identify(origin, recipe_clue).await?;
+    let label = label_identify(origin, label_clue, false).await?;
 
     ladle::recipe_untag(origin, &recipe.id, &label.id).await
 }
