@@ -1,8 +1,7 @@
 use crate::ingredient_actions::ingredient_identify;
 use crate::label_actions::label_identify;
-use crate::ChopstickError;
+use crate::{is_true, ChopstickError};
 use ladle::models::RecipeIndex;
-use std::collections::{HashMap, HashSet};
 use std::error;
 
 pub async fn recipe_actions(
@@ -12,7 +11,16 @@ pub async fn recipe_actions(
     match matches.subcommand() {
         ("list", Some(sub_m)) => recipe_list(origin, sub_m.value_of("pattern")).await,
         ("show", Some(sub_m)) => recipe_show(origin, sub_m.value_of("recipe")).await,
-        ("create", Some(sub_m)) => recipe_create(origin, sub_m.value_of("name")).await,
+        ("create", Some(sub_m)) => {
+            recipe_create(
+                origin,
+                sub_m.value_of("name"),
+                sub_m.value_of("author"),
+                sub_m.value_of("directions"),
+                sub_m.value_of("information"),
+            )
+            .await
+        }
         ("edit", Some(sub_m)) => {
             recipe_edit(
                 origin,
@@ -20,6 +28,7 @@ pub async fn recipe_actions(
                 sub_m.value_of("name"),
                 sub_m.value_of("author"),
                 sub_m.value_of("directions"),
+                sub_m.value_of("information"),
             )
             .await
         }
@@ -31,6 +40,7 @@ pub async fn recipe_actions(
                     sub_m.value_of("recipe"),
                     sub_m.value_of("ingredient"),
                     sub_m.value_of("quantity"),
+                    sub_m.is_present("optional"),
                 )
                 .await
             }
@@ -40,6 +50,7 @@ pub async fn recipe_actions(
                     sub_m.value_of("recipe"),
                     sub_m.value_of("ingredient"),
                     sub_m.value_of("quantity"),
+                    sub_m.value_of("optional"),
                 )
                 .await
             }
@@ -113,9 +124,21 @@ async fn recipe_show(origin: &str, recipe_clue: Option<&str>) -> Result<(), Box<
     Ok(())
 }
 
-async fn recipe_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let params = HashMap::from([("name", name.unwrap())]);
-    ladle::recipe_create(origin, params).await?;
+async fn recipe_create(
+    origin: &str,
+    name: Option<&str>,
+    author: Option<&str>,
+    directions: Option<&str>,
+    information: Option<&str>,
+) -> Result<(), Box<dyn error::Error>> {
+    ladle::recipe_create(
+        origin,
+        name.unwrap(),
+        author.unwrap_or(""),
+        directions.unwrap_or(""),
+        information.unwrap_or(""),
+    )
+    .await?;
     Ok(())
 }
 
@@ -125,31 +148,16 @@ async fn recipe_edit(
     name: Option<&str>,
     author: Option<&str>,
     directions: Option<&str>,
+    information: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
     let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
 
-    let mut params = HashMap::new();
-
-    if let Some(value) = name {
-        params.insert("name", value);
-    }
-
-    if let Some(value) = author {
-        params.insert("author", value);
-    }
-
-    if let Some(value) = directions {
-        params.insert("directions", value);
-    }
-
-    ladle::recipe_update(origin, &recipe.id, params).await?;
-
+    ladle::recipe_update(origin, &recipe.id, name, author, directions, information).await?;
     Ok(())
 }
 
 async fn recipe_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    ladle::recipe_delete(origin, id.unwrap()).await?;
-    Ok(())
+    ladle::recipe_delete(origin, id.unwrap()).await
 }
 
 async fn requirement_add(
@@ -157,11 +165,19 @@ async fn requirement_add(
     recipe_clue: Option<&str>,
     ingredient_clue: Option<&str>,
     quantity: Option<&str>,
+    optional: bool,
 ) -> Result<(), Box<dyn error::Error>> {
     let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
     let ingredient = ingredient_identify(origin, ingredient_clue.unwrap(), false).await?;
 
-    ladle::requirement_create(origin, &recipe.id, &ingredient.id, quantity.unwrap()).await
+    ladle::requirement_create(
+        origin,
+        &recipe.id,
+        &ingredient.id,
+        quantity.unwrap(),
+        optional,
+    )
+    .await
 }
 
 async fn requirement_update(
@@ -169,11 +185,19 @@ async fn requirement_update(
     recipe_clue: Option<&str>,
     ingredient_clue: Option<&str>,
     quantity: Option<&str>,
+    optional: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
     let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
     let ingredient = ingredient_identify(origin, ingredient_clue.unwrap(), false).await?;
 
-    ladle::requirement_update(origin, &recipe.id, &ingredient.id, quantity.unwrap()).await
+    ladle::requirement_update(
+        origin,
+        &recipe.id,
+        &ingredient.id,
+        quantity,
+        is_true(optional),
+    )
+    .await
 }
 
 async fn requirement_delete(
@@ -217,17 +241,14 @@ async fn recipe_edit_link(
     let recipe = recipe_identify(origin, recipe_clue.unwrap()).await?;
     let required = recipe_identify(origin, required_clue.unwrap()).await?;
 
-    let optional = if let Some(string) = optional {
-        if HashSet::from(["true", "True", "yes", "y"]).contains(string) {
-            Some(true)
-        } else {
-            Some(false)
-        }
-    } else {
-        None
-    };
-
-    ladle::dependency_edit(origin, &recipe.id, &required.id, quantity, optional).await
+    ladle::dependency_edit(
+        origin,
+        &recipe.id,
+        &required.id,
+        quantity,
+        is_true(optional),
+    )
+    .await
 }
 
 async fn recipe_unlink(

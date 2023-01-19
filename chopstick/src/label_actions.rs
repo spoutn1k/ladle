@@ -1,6 +1,5 @@
 use crate::ChopstickError;
 use ladle::models::{Label, LabelIndex};
-use std::collections::HashMap;
 use std::error;
 
 pub async fn label_actions(
@@ -60,15 +59,9 @@ async fn label_edit(
     label_clue: Option<&str>,
     name: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
-    let mut params = HashMap::new();
-
-    if let Some(value) = name {
-        params.insert("name", value);
-    }
-
     let label = label_identify(origin, label_clue.unwrap(), false).await?;
 
-    ladle::label_update(origin, &label.id, params).await?;
+    ladle::label_update(origin, &label.id, name.unwrap()).await?;
     Ok(())
 }
 

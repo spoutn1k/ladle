@@ -1,7 +1,6 @@
-use crate::ChopstickError;
+use crate::{is_true, ChopstickError};
 use futures::future::join_all;
 use ladle::models::{Ingredient, IngredientIndex};
-use std::collections::HashMap;
 use std::error;
 
 pub async fn ingredient_actions(
@@ -11,9 +10,28 @@ pub async fn ingredient_actions(
     match matches.subcommand() {
         ("list", Some(sub_m)) => ingredient_list(origin, sub_m.value_of("pattern")).await,
         ("show", Some(sub_m)) => ingredient_show(origin, sub_m.value_of("ingredient")).await,
-        ("create", Some(sub_m)) => ingredient_create(origin, sub_m.value_of("name")).await,
+        ("create", Some(sub_m)) => {
+            ingredient_create(
+                origin,
+                sub_m.value_of("name"),
+                sub_m.is_present("dairy"),
+                sub_m.is_present("meat"),
+                sub_m.is_present("gluten"),
+                sub_m.is_present("animal_product"),
+            )
+            .await
+        }
         ("edit", Some(sub_m)) => {
-            ingredient_edit(origin, sub_m.value_of("ingredient"), sub_m.value_of("name")).await
+            ingredient_edit(
+                origin,
+                sub_m.value_of("ingredient"),
+                sub_m.value_of("name"),
+                sub_m.value_of("dairy"),
+                sub_m.value_of("meat"),
+                sub_m.value_of("gluten"),
+                sub_m.value_of("animal_product"),
+            )
+            .await
         }
         ("delete", Some(sub_m)) => ingredient_delete(origin, sub_m.value_of("ingredient")).await,
         ("merge", Some(sub_m)) => {
@@ -38,9 +56,16 @@ async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<
 async fn ingredient_show(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
 
-    let Ingredient { id, name, used_in } = ladle::ingredient_get(origin, &ingredient.id).await?;
+    let Ingredient {
+        id,
+        name,
+        classifications,
+        used_in,
+    } = ladle::ingredient_get(origin, &ingredient.id).await?;
 
     println!("{}\t{}", name, id);
+    println!("{:?}", classifications);
+
     used_in
         .iter()
         .map(|r| println!("- {}\t{}", r.name, r.id))
@@ -49,8 +74,15 @@ async fn ingredient_show(origin: &str, id: Option<&str>) -> Result<(), Box<dyn e
     Ok(())
 }
 
-async fn ingredient_create(origin: &str, name: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    ladle::ingredient_create(origin, name.unwrap()).await?;
+async fn ingredient_create(
+    origin: &str,
+    name: Option<&str>,
+    dairy: bool,
+    meat: bool,
+    gluten: bool,
+    animal_product: bool,
+) -> Result<(), Box<dyn error::Error>> {
+    ladle::ingredient_create(origin, name.unwrap(), dairy, meat, gluten, animal_product).await?;
     Ok(())
 }
 
@@ -58,16 +90,23 @@ async fn ingredient_edit(
     origin: &str,
     id: Option<&str>,
     name: Option<&str>,
+    dairy: Option<&str>,
+    meat: Option<&str>,
+    gluten: Option<&str>,
+    animal_product: Option<&str>,
 ) -> Result<(), Box<dyn error::Error>> {
     let ingredient = ingredient_identify(origin, id.unwrap(), false).await?;
 
-    let mut params = HashMap::new();
-
-    if let Some(value) = name {
-        params.insert("name", value);
-    }
-
-    ladle::ingredient_update(origin, &ingredient.id, params).await
+    ladle::ingredient_update(
+        origin,
+        &ingredient.id,
+        name,
+        is_true(dairy),
+        is_true(meat),
+        is_true(gluten),
+        is_true(animal_product),
+    )
+    .await
 }
 
 async fn ingredient_delete(origin: &str, id: Option<&str>) -> Result<(), Box<dyn error::Error>> {
@@ -114,7 +153,7 @@ async fn ingredient_merge(
         .collect::<Vec<(String, String)>>();
 
     let additions = targets.iter().map(|(recipe_id, quantity)| async {
-        ladle::requirement_create(origin, recipe_id, &target_id, quantity).await
+        ladle::requirement_create(origin, recipe_id, &target_id, quantity, false).await
     });
 
     let deletions = targets.iter().map(|(recipe_id, _)| async {
@@ -136,6 +175,7 @@ pub async fn ingredient_identify(
     if let Ok(Ingredient {
         name,
         id,
+        classifications: _,
         used_in: _,
     }) = ladle::ingredient_get(url, clue).await
     {
@@ -163,7 +203,7 @@ pub async fn ingredient_identify(
     }
 
     if create {
-        ladle::ingredient_create(url, clue).await
+        ladle::ingredient_create(url, clue, false, false, false, false).await
     } else {
         Err(Box::new(ChopstickError(format!(
             "Failed to identify ingredient from: `{}`",

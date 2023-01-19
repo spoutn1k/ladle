@@ -11,6 +11,16 @@ use std::fmt;
 #[macro_use]
 extern crate clap;
 
+fn is_true(opt: Option<&str>) -> Option<bool> {
+    if let Some(value) = opt {
+        if vec!["True", "true"].contains(&value) {
+            return Some(true);
+        }
+        return Some(false);
+    }
+    return None;
+}
+
 #[derive(Debug)]
 struct ChopstickError(String);
 
@@ -138,11 +148,13 @@ async fn main() {
             (@subcommand create =>
                 (about: "create an ingredient")
                 (@arg name: +required "target ingredient name")
+                (@arg dairy: --dairy "set dairy classification to true")
             )
             (@subcommand edit =>
                 (about: "edit an ingredient")
                 (@arg ingredient: +required "target ingredient id or name")
                 (@arg name: -n --name +takes_value "new ingredient name")
+                (@arg dairy: --dairy +takes_value "set dairy classification to true or false")
             )
             (@subcommand delete =>
                 (about: "delete an ingredient")
@@ -183,9 +195,8 @@ async fn main() {
 
     if matches.is_present("verbose") {
         SimpleLogger::new()
-            .with_level(LevelFilter::Debug)
-            .with_module_level("reqwest", LevelFilter::Trace)
-            //.with_module_level("chopstick", LevelFilter::Debug)
+            .with_module_level("ladle", LevelFilter::Debug)
+            .with_module_level("chopstick", LevelFilter::Debug)
             .init()
             .unwrap();
     } else {

@@ -166,7 +166,16 @@ async fn gen_ingredient_table<'a>(remote: &str, data: &'a Datadump) -> HashMap<&
     let mut table: HashMap<&str, String> = HashMap::new();
 
     for ingredient in data.ingredients.iter() {
-        match ladle::ingredient_create(remote, &ingredient.name as &str).await {
+        match ladle::ingredient_create(
+            remote,
+            &ingredient.name as &str,
+            ingredient.classifications.dairy,
+            ingredient.classifications.meat,
+            ingredient.classifications.gluten,
+            ingredient.classifications.animal_product,
+        )
+        .await
+        {
             Ok(created) => table
                 .insert(&ingredient.id as &str, created.id.to_owned())
                 .unwrap_or_default(),
@@ -237,15 +246,15 @@ async fn recipe_clone(
     ingredient_table: &HashMap<&str, String>,
     recipe_table: &HashMap<&str, String>,
 ) -> String {
-    let params = HashMap::from([
-        ("name", recipe.name.as_str()),
-        ("author", recipe.author.as_str()),
-        ("directions", recipe.directions.as_str()),
-    ]);
-
-    let remote_recipe = ladle::recipe_create(remote, params)
-        .await
-        .expect("Failed to create recipe on remote");
+    let remote_recipe = ladle::recipe_create(
+        remote,
+        &recipe.name,
+        &recipe.author,
+        &recipe.directions,
+        &recipe.information,
+    )
+    .await
+    .expect("Failed to create recipe on remote");
 
     let recipe_tags: Vec<&LabelIndex> = recipe.tags.iter().collect();
 
@@ -289,6 +298,7 @@ async fn recipe_clone(
             remote_recipe.id.as_str(),
             remote_ingredient_id.as_str(),
             &r.quantity,
+            r.optional,
         )
     });
 
