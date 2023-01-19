@@ -9,15 +9,20 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use unidecode::unidecode;
 
-/// Maintenance family of commands
+/// Maintenance commands
 #[derive(Subcommand)]
 pub enum MaintenanceSubCommands {
+    /// Dump a server's contents to a JSON portable format, with stripped IDs
     Dump,
+    /// Remove unused ingredients and tags from the server
     Clean,
+    /// Clone the contents of the server or a JSON dump file to a specified remote
     Clone {
+        /// JSON dump file to clone
         #[arg(short, long, value_name = "FILE")]
         file: Option<PathBuf>,
 
+        /// Remote server to clone the data to
         remote: String,
     },
 }

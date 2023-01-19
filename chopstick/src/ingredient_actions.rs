@@ -7,56 +7,74 @@ use std::error;
 /// Ingredient fetching and edition family of commands
 #[derive(Subcommand)]
 pub enum IngredientSubCommands {
+    /// List ingredients from the server
     List {
         /// Ingredient name pattern to match in list
         pattern: Option<String>,
     },
 
+    /// Fetch details about an ingredient
     Show {
         /// Ingredient name, id or identifying pattern
         clue: String,
     },
 
-    /// Create a ingredient
+    /// Create an ingredient
     Create {
-        /// Ingredient name
+        /// Ingredient's name
         name: String,
 
+        /// Mark the ingredient as containing dairy
         dairy: bool,
+
+        /// Mark the ingredient as containing meat
         meat: bool,
+
+        /// Mark the ingredient as containing gluten
         gluten: bool,
+
+        /// Mark the ingredient as containing animal products
         animal_product: bool,
     },
 
-    /// Edit a ingredient
+    /// Edit an ingredient
     Edit {
         /// Ingredient name, id or identifying pattern
         clue: String,
 
+        /// Change the ingredient's name
         #[arg(short, long)]
         name: Option<String>,
 
+        /// Change the ingredient's dairy content
         #[arg(short, long)]
         dairy: Option<bool>,
 
+        /// Change the ingredient's meat content
         #[arg(short, long)]
         meat: Option<bool>,
 
+        /// Change the ingredient's gluten content
         #[arg(short, long)]
         gluten: Option<bool>,
 
+        /// Change the ingredient's animal product content
         #[arg(short, long)]
         animal_product: Option<bool>,
     },
 
-    /// Delete ingredient
+    /// Delete an ingredient
     Delete {
-        /// Ingredient id
+        /// Ingredient id matching the ingredient to delete
         id: String,
     },
 
+    /// Merge one ingredient into another and update all recipes dependent on the former
     Merge {
+        /// Ingredient to keep
         unified_clue: String,
+
+        /// Ingredient to merge and delete
         obsolete_clue: String,
     },
 }

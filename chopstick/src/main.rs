@@ -20,7 +20,6 @@ impl fmt::Display for ChopstickError {
 
 impl Error for ChopstickError {}
 
-/// Simple program to greet a person
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {

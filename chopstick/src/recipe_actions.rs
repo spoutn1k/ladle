@@ -8,35 +8,37 @@ use std::error;
 /// Recipe fetching and edition family of commands
 #[derive(Subcommand)]
 pub enum RecipeSubCommands {
+    /// List recipes from the server
     List {
         /// Recipe name pattern to match in list
         pattern: Option<String>,
     },
 
+    /// Fetch details about a recipe
     Show {
         /// Recipe name, id or identifying pattern
         clue: String,
     },
 
-    /// Create a recipe
+    /// Create a recipe on the server
     Create {
-        /// Recipe name
+        /// Recipe's name
         name: String,
 
-        /// Recipe author
+        /// Recipe's author
         #[arg(short, long)]
         author: Option<String>,
 
-        /// Recipe directions
+        /// Recipe's directions
         #[arg(short, long)]
         directions: Option<String>,
 
-        /// Recipe information
+        /// Recipe's information
         #[arg(short, long)]
         information: Option<String>,
     },
 
-    /// Edit a recipe
+    /// Edit an existing recipe on the server
     Edit {
         /// Recipe name, id or identifying pattern
         clue: String,
@@ -58,9 +60,9 @@ pub enum RecipeSubCommands {
         information: Option<String>,
     },
 
-    /// Delete recipe
+    /// Delete a recipe from the server
     Delete {
-        /// Recipe id
+        /// Recipe id matching the recipe to delete
         id: String,
     },
 
@@ -80,7 +82,7 @@ pub enum RecipeSubCommands {
     },
 }
 
-/// Requirement fetching and edition family of commands
+/// Manage a recipe's requirements
 #[derive(Subcommand)]
 pub enum RequirementSubCommands {
     /// Create a requirement
@@ -126,7 +128,7 @@ pub enum RequirementSubCommands {
     },
 }
 
-/// Dependency fetching and edition family of commands
+/// Manage a recipe's dependencies
 #[derive(Subcommand)]
 pub enum DependencySubCommands {
     /// Create a dependency
@@ -172,11 +174,11 @@ pub enum DependencySubCommands {
     },
 }
 
-/// Tag fetching and edition family of commands
+/// Manage a recipe's tags
 #[derive(Subcommand)]
 pub enum TagSubCommands {
-    /// Create a tag
-    Create {
+    /// Add a tag
+    Add {
         /// Recipe name, id or identifying pattern
         recipe_clue: String,
 
@@ -271,7 +273,7 @@ pub async fn dependency_actions(
 
 pub async fn tag_actions(origin: &str, cmd: TagSubCommands) -> Result<(), Box<dyn error::Error>> {
     match cmd {
-        TagSubCommands::Create {
+        TagSubCommands::Add {
             recipe_clue,
             label_name,
         } => recipe_tag(origin, &recipe_clue, &label_name).await,
