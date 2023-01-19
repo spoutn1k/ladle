@@ -1,6 +1,7 @@
 use reqwest::{Client, StatusCode};
+use serde::Serialize;
+use serde_json::{json, Map, Value};
 use std::any::Any;
-use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
@@ -49,11 +50,7 @@ async fn get<'a, T: serde::de::DeserializeOwned>(url: &str) -> Result<T, Box<dyn
 
 /// Send a POST request to a knife server. Hijack the 409 CONFLICT status to get info on existing
 /// data
-async fn post<
-    'a,
-    P: serde::Serialize + fmt::Debug,
-    T: serde::de::DeserializeOwned + Any + Default,
->(
+async fn post<'a, P: Serialize + fmt::Debug, T: serde::de::DeserializeOwned + Any + Default>(
     url: &str,
     params: P,
 ) -> Result<T, Box<dyn Error>> {
@@ -75,11 +72,7 @@ async fn post<
     }
 }
 
-async fn put<
-    'a,
-    P: serde::Serialize + fmt::Debug,
-    T: serde::de::DeserializeOwned + Any + Default,
->(
+async fn put<'a, P: Serialize + fmt::Debug, T: serde::de::DeserializeOwned + Any + Default>(
     url: &str,
     params: P,
 ) -> Result<T, Box<dyn Error>> {
@@ -139,23 +132,57 @@ pub async fn recipe_get(url: &str, id: &str) -> Result<models::Recipe, Box<dyn E
 
 pub async fn recipe_create(
     url: &str,
-    params: HashMap<&str, &str>,
+    name: &str,
+    author: &str,
+    directions: &str,
+    information: &str,
 ) -> Result<models::Recipe, Box<dyn Error>> {
+    let params = json!([
+        ("name", name),
+        ("author", author),
+        ("directions", directions),
+        ("information", information)
+    ]);
     let endpoint = format!("{}/recipes/new", url);
-    let answer = post(&endpoint, params);
-
-    answer.await
+    post(&endpoint, params).await
 }
 
 pub async fn recipe_update(
     url: &str,
     id: &str,
-    data: HashMap<&str, &str>,
+    name: Option<&str>,
+    author: Option<&str>,
+    directions: Option<&str>,
+    information: Option<&str>,
 ) -> Result<models::Recipe, Box<dyn Error>> {
-    let endpoint = format!("{}/recipes/{}", url, id);
-    let answer = put(&endpoint, data);
+    let mut params = Value::Object(Map::default());
+    if let Some(value) = name {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("name"), Value::String(String::from(value)));
+    }
+    if let Some(value) = author {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("author"), Value::String(String::from(value)));
+    }
+    if let Some(value) = directions {
+        params.as_object_mut().unwrap().insert(
+            String::from("directions"),
+            Value::String(String::from(value)),
+        );
+    }
+    if let Some(value) = information {
+        params.as_object_mut().unwrap().insert(
+            String::from("information"),
+            Value::String(String::from(value)),
+        );
+    }
 
-    answer.await
+    let endpoint = format!("{}/recipes/{}", url, id);
+    put(&endpoint, params).await
 }
 
 pub async fn recipe_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
@@ -172,7 +199,7 @@ pub async fn dependency_create(
     quantity: &str,
     optional: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let params = serde_json::json!({
+    let params = json!({
         "requisite": required_id,
         "quantity": quantity,
         "optional": optional,
@@ -190,17 +217,22 @@ pub async fn dependency_edit(
     quantity: Option<&str>,
     optional: Option<bool>,
 ) -> Result<(), Box<dyn Error>> {
-    let params = match (quantity, optional) {
-        (Some(qt), Some(op)) => serde_json::json!({"quantity":qt, "optional": op}),
-        (Some(qt), None) => serde_json::json!({ "quantity": qt }),
-        (None, Some(op)) => serde_json::json!({ "optional": op }),
-        (None, None) => serde_json::json!({}),
-    };
+    let mut params = Value::Object(Map::default());
+    if let Some(value) = quantity {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("quantity"), Value::String(String::from(value)));
+    }
+    if let Some(value) = optional {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("optional"), Value::Bool(value));
+    }
 
     let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
-    let answer = put(&endpoint, params);
-
-    answer.await
+    put(&endpoint, params).await
 }
 
 pub async fn dependency_delete(
@@ -209,25 +241,18 @@ pub async fn dependency_delete(
     required_id: &str,
 ) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/dependencies/{}", url, id, required_id);
-    let answer = delete(&endpoint);
-
-    answer.await
+    delete(&endpoint).await
 }
 
 pub async fn recipe_tag(url: &str, id: &str, label_name: &str) -> Result<(), Box<dyn Error>> {
-    let mut params = HashMap::new();
-    params.insert("name", label_name);
+    let params = json!([("name", label_name)]);
     let endpoint = format!("{}/recipes/{}/tags/add", url, id);
-    let answer = post(&endpoint, params);
-
-    answer.await
+    post(&endpoint, params).await
 }
 
 pub async fn recipe_untag(url: &str, id: &str, label_id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/tags/{}", url, id, label_id);
-    let answer = delete(&endpoint);
-
-    answer.await
+    delete(&endpoint).await
 }
 
 pub async fn recipe_get_requirements(
@@ -235,9 +260,7 @@ pub async fn recipe_get_requirements(
     id: &str,
 ) -> Result<Vec<models::Requirement>, Box<dyn Error>> {
     let endpoint = format!("{}/recipes/{}/requirements", url, id);
-    let answer = get::<Vec<models::Requirement>>(&endpoint);
-
-    answer.await
+    get::<Vec<models::Requirement>>(&endpoint).await
 }
 
 pub async fn ingredient_index(
@@ -245,21 +268,29 @@ pub async fn ingredient_index(
     pattern: &str,
 ) -> Result<Vec<models::IngredientIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients?name={}", url, pattern);
-
     get(&endpoint).await
 }
 
 pub async fn ingredient_get(url: &str, id: &str) -> Result<models::Ingredient, Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-
     get(&endpoint).await
 }
 
 pub async fn ingredient_create(
     url: &str,
     name: &str,
+    dairy: bool,
+    meat: bool,
+    gluten: bool,
+    animal_product: bool,
 ) -> Result<models::IngredientIndex, Box<dyn Error>> {
-    let params = HashMap::from([("name", name)]);
+    let params = json!([
+        ("name", name),
+        ("dairy", dairy),
+        ("meat", meat),
+        ("gluten", gluten),
+        ("animal_product", animal_product)
+    ]);
     let endpoint = format!("{}/ingredients/new", url);
 
     post(&endpoint, params).await
@@ -268,18 +299,42 @@ pub async fn ingredient_create(
 pub async fn ingredient_update(
     url: &str,
     id: &str,
-    data: HashMap<&str, &str>,
+    name: Option<&str>,
+    dairy: Option<bool>,
+    meat: Option<bool>,
+    gluten: Option<bool>,
+    animal_product: Option<bool>,
 ) -> Result<(), Box<dyn Error>> {
+    let mut params = vec![];
+
+    if let Some(value) = name {
+        params.push(Value::String(String::from(value)));
+    }
+
+    if let Some(value) = dairy {
+        params.push(Value::Bool(value));
+    }
+
+    if let Some(value) = meat {
+        params.push(Value::Bool(value));
+    }
+
+    if let Some(value) = gluten {
+        params.push(Value::Bool(value));
+    }
+
+    if let Some(value) = animal_product {
+        params.push(Value::Bool(value));
+    }
+
     let endpoint = format!("{}/ingredients/{}", url, id);
 
-    put(&endpoint, data).await
+    put(&endpoint, params).await
 }
 
 pub async fn ingredient_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/ingredients/{}", url, id);
-    let answer = delete(&endpoint);
-
-    answer.await
+    delete(&endpoint).await
 }
 
 pub async fn label_index(
@@ -287,44 +342,34 @@ pub async fn label_index(
     pattern: &str,
 ) -> Result<Vec<models::LabelIndex>, Box<dyn Error>> {
     let endpoint = format!("{}/labels?name={}", url, pattern);
-    let answer = get(&endpoint);
-
-    answer.await
+    get(&endpoint).await
 }
 
 pub async fn label_get(url: &str, id: &str) -> Result<models::Label, Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = get(&endpoint);
-
-    answer.await
+    get(&endpoint).await
 }
 
 pub async fn label_create(url: &str, name: &str) -> Result<models::LabelIndex, Box<dyn Error>> {
-    let mut params = HashMap::new();
-    params.insert("name", name);
+    let params = json!([("name", name)]);
 
     let endpoint = format!("{}/labels/new", url);
-    let answer = post(&endpoint, params);
-
-    answer.await
+    post(&endpoint, params).await
 }
 
 pub async fn label_update(
     url: &str,
     id: &str,
-    data: HashMap<&str, &str>,
+    name: &str,
 ) -> Result<models::LabelIndex, Box<dyn Error>> {
+    let params = json!([("name", name)]);
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = put(&endpoint, data);
-
-    answer.await
+    put(&endpoint, params).await
 }
 
 pub async fn label_delete(url: &str, id: &str) -> Result<(), Box<dyn Error>> {
     let endpoint = format!("{}/labels/{}", url, id);
-    let answer = delete(&endpoint);
-
-    answer.await
+    delete(&endpoint).await
 }
 
 pub async fn requirement_create(
@@ -332,10 +377,14 @@ pub async fn requirement_create(
     recipe_id: &str,
     ingredient_id: &str,
     quantity: &str,
+    optional: bool,
 ) -> Result<(), Box<dyn Error>> {
+    let params = json!([
+        ("quantity", quantity),
+        ("optional", optional),
+        ("ingredient_id", ingredient_id),
+    ]);
     let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
-    let params = HashMap::from([("quantity", quantity), ("ingredient_id", ingredient_id)]);
-
     post(&endpoint, params).await
 }
 
@@ -343,14 +392,26 @@ pub async fn requirement_update(
     url: &str,
     recipe_id: &str,
     ingredient_id: &str,
-    quantity: &str,
+    quantity: Option<&str>,
+    optional: Option<bool>,
 ) -> Result<(), Box<dyn Error>> {
+    let mut params = Value::Object(Map::default());
+    if let Some(value) = quantity {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("quantity"), Value::String(String::from(value)));
+    }
+    if let Some(value) = optional {
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("optional"), Value::Bool(value));
+    }
     let endpoint = format!(
         "{}/recipes/{}/requirements/{}",
         url, recipe_id, ingredient_id
     );
-    let mut params = HashMap::new();
-    params.insert("quantity", quantity);
 
     put(&endpoint, params).await
 }
@@ -366,47 +427,4 @@ pub async fn requirement_delete(
     );
 
     delete(&endpoint).await
-}
-
-pub async fn requirement_create_from_ingredient_name(
-    url: &str,
-    recipe_id: &str,
-    ingredient: &str,
-    quantity: &str,
-) -> Result<(), Box<dyn Error>> {
-    let sanitized_name = unidecode::unidecode(ingredient.to_lowercase().as_str());
-    let endpoint = format!("{}/ingredients?name={}", url, sanitized_name.as_str());
-    let lookup = get::<Vec<models::Ingredient>>(&endpoint).await?;
-
-    let exact_matches = lookup
-        .iter()
-        .filter(|i| unidecode::unidecode(i.name.to_lowercase().as_str()) == sanitized_name)
-        .collect::<Vec<&models::Ingredient>>();
-
-    let ingredient_id: String;
-    log::debug!(
-        "Comparing {} to {:?}",
-        ingredient,
-        lookup
-            .iter()
-            .map(|i| i.name.as_str())
-            .collect::<Vec<&str>>()
-    );
-
-    if exact_matches.len() == 1 {
-        ingredient_id = exact_matches.first().unwrap().id.clone();
-    } else {
-        let mut params = HashMap::new();
-        params.insert("name", ingredient);
-        let endpoint = format!("{}/ingredients/new", url);
-        let ingredient = post::<_, models::IngredientIndex>(&endpoint, params).await?;
-        ingredient_id = ingredient.id;
-    };
-
-    let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
-    let mut params = HashMap::new();
-    params.insert("quantity", quantity);
-    params.insert("ingredient_id", ingredient_id.as_str());
-
-    post(&endpoint, params).await
 }
