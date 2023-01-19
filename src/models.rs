@@ -35,11 +35,21 @@ pub struct Label {
     pub tagged_recipes: Vec<RecipeIndex>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Classifications {
+    pub dairy: bool,
+    pub meat: bool,
+    pub gluten: bool,
+    pub animal_product: bool,
+}
+
 /// Ingredient metadata
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Ingredient {
     pub id: String,
     pub name: String,
+
+    pub classifications: Classifications,
 
     #[serde(default)]
     pub used_in: Vec<RecipeIndex>,
@@ -50,6 +60,7 @@ pub struct Ingredient {
 pub struct Requirement {
     pub ingredient: IngredientIndex,
     pub quantity: String,
+    pub optional: bool,
 }
 
 /// Dependency metadata
@@ -71,6 +82,9 @@ pub struct Recipe {
 
     #[serde(default)]
     pub directions: String,
+
+    #[serde(default)]
+    pub information: String,
 
     /// List of requirements. Contains ingredient indexes
     #[serde(default)]
