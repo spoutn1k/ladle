@@ -137,12 +137,12 @@ pub async fn recipe_create(
     directions: &str,
     information: &str,
 ) -> Result<models::Recipe, Box<dyn Error>> {
-    let params = json!([
-        ("name", name),
-        ("author", author),
-        ("directions", directions),
-        ("information", information)
-    ]);
+    let params = json!({
+        "name": name,
+        "author": author,
+        "directions": directions,
+        "information": information
+    });
     let endpoint = format!("{}/recipes/new", url);
     post(&endpoint, params).await
 }
@@ -245,7 +245,7 @@ pub async fn dependency_delete(
 }
 
 pub async fn recipe_tag(url: &str, id: &str, label_name: &str) -> Result<(), Box<dyn Error>> {
-    let params = json!([("name", label_name)]);
+    let params = json!({ "name": label_name });
     let endpoint = format!("{}/recipes/{}/tags/add", url, id);
     post(&endpoint, params).await
 }
@@ -284,13 +284,13 @@ pub async fn ingredient_create(
     gluten: bool,
     animal_product: bool,
 ) -> Result<models::IngredientIndex, Box<dyn Error>> {
-    let params = json!([
-        ("name", name),
-        ("dairy", dairy),
-        ("meat", meat),
-        ("gluten", gluten),
-        ("animal_product", animal_product)
-    ]);
+    let params = json!({
+        "name": name,
+        "dairy": dairy,
+        "meat": meat,
+        "gluten": gluten,
+        "animal_product": animal_product
+    });
     let endpoint = format!("{}/ingredients/new", url);
 
     post(&endpoint, params).await
@@ -305,26 +305,40 @@ pub async fn ingredient_update(
     gluten: Option<bool>,
     animal_product: Option<bool>,
 ) -> Result<(), Box<dyn Error>> {
-    let mut params = vec![];
-
+    let mut params = Value::Object(Map::default());
     if let Some(value) = name {
-        params.push(Value::String(String::from(value)));
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("name"), Value::String(String::from(value)));
     }
 
     if let Some(value) = dairy {
-        params.push(Value::Bool(value));
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("dairy"), Value::Bool(value));
     }
 
     if let Some(value) = meat {
-        params.push(Value::Bool(value));
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("meat"), Value::Bool(value));
     }
 
     if let Some(value) = gluten {
-        params.push(Value::Bool(value));
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("gluten"), Value::Bool(value));
     }
 
     if let Some(value) = animal_product {
-        params.push(Value::Bool(value));
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert(String::from("animal_product"), Value::Bool(value));
     }
 
     let endpoint = format!("{}/ingredients/{}", url, id);
@@ -351,7 +365,7 @@ pub async fn label_get(url: &str, id: &str) -> Result<models::Label, Box<dyn Err
 }
 
 pub async fn label_create(url: &str, name: &str) -> Result<models::LabelIndex, Box<dyn Error>> {
-    let params = json!([("name", name)]);
+    let params = json!({ "name": name });
 
     let endpoint = format!("{}/labels/new", url);
     post(&endpoint, params).await
@@ -362,7 +376,7 @@ pub async fn label_update(
     id: &str,
     name: &str,
 ) -> Result<models::LabelIndex, Box<dyn Error>> {
-    let params = json!([("name", name)]);
+    let params = json!({ "name": name });
     let endpoint = format!("{}/labels/{}", url, id);
     put(&endpoint, params).await
 }
@@ -379,11 +393,11 @@ pub async fn requirement_create(
     quantity: &str,
     optional: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let params = json!([
-        ("quantity", quantity),
-        ("optional", optional),
-        ("ingredient_id", ingredient_id),
-    ]);
+    let params = json!({
+        "quantity": quantity,
+        "optional": optional,
+        "ingredient_id": ingredient_id,
+    });
     let endpoint = format!("{}/recipes/{}/requirements/add", url, recipe_id);
     post(&endpoint, params).await
 }
