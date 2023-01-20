@@ -49,6 +49,7 @@ pub struct Ingredient {
     pub id: String,
     pub name: String,
 
+    #[serde(default)]
     pub classifications: Classifications,
 
     #[serde(default)]
@@ -60,6 +61,7 @@ pub struct Ingredient {
 pub struct Requirement {
     pub ingredient: IngredientIndex,
     pub quantity: String,
+    #[serde(default)]
     pub optional: bool,
 }
 
@@ -68,6 +70,7 @@ pub struct Requirement {
 pub struct Dependency {
     pub recipe: RecipeIndex,
     pub quantity: String,
+    #[serde(default)]
     pub optional: bool,
 }
 
