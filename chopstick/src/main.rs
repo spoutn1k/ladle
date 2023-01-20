@@ -24,8 +24,8 @@ impl Error for ChopstickError {}
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    verbose: u8,
+    #[arg(short, long)]
+    verbose: bool,
 
     /// Server URL to contact
     #[arg(short, long)]
@@ -62,8 +62,9 @@ enum Subcommands {
 async fn main() {
     let matches = Cli::parse();
 
-    if matches.verbose == 1 {
+    if matches.verbose {
         SimpleLogger::new()
+            .with_level(LevelFilter::Info)
             .with_module_level("ladle", LevelFilter::Debug)
             .with_module_level("chopstick", LevelFilter::Debug)
             .init()
