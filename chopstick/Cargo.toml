@@ -1,6 +1,6 @@
 [package]
 name = "chopstick"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
@@ -8,7 +8,7 @@ config = "0.13.3"
 dirs = "4.0.0"
 futures = "0.3"
 indicatif = "0.17.2"
-ladle = { version = "0.1", path = "../" }
+ladle = { version = "0.3.0", path = "../" }
 log = "0.4.0"
 serde_json = "~1.0.89"
 tokio = { version = "1", features = ["full"] }
