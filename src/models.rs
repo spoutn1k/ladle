@@ -89,6 +89,9 @@ pub struct Recipe {
     #[serde(default)]
     pub information: String,
 
+    #[serde(default)]
+    pub classifications: Classifications,
+
     /// List of requirements. Contains ingredient indexes
     #[serde(default)]
     pub requirements: HashSet<Requirement>,
