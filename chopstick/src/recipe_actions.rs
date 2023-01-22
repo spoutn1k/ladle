@@ -4,6 +4,7 @@ use crate::ChopstickError;
 use clap::Subcommand;
 use ladle::models::RecipeIndex;
 use std::error;
+use unidecode::unidecode;
 
 /// Recipe fetching and edition family of commands
 #[derive(Subcommand)]
@@ -332,10 +333,11 @@ pub async fn actions(origin: &str, cmd: RecipeSubCommands) -> Result<(), Box<dyn
 }
 
 async fn recipe_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let recipes = ladle::recipe_index(origin, pattern.unwrap_or("")).await?;
+    let mut recipes = ladle::recipe_index(origin, pattern.unwrap_or("")).await?;
+    recipes.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
     recipes
         .iter()
-        .map(|x| println!("{}\t{}", x.id, x.name))
+        .map(|x| println!("{}\t{}", x.name, x.id))
         .for_each(drop);
 
     Ok(())

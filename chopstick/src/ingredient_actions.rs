@@ -3,6 +3,7 @@ use clap::Subcommand;
 use futures::future::join_all;
 use ladle::models::{Ingredient, IngredientIndex};
 use std::error;
+use unidecode::unidecode;
 
 /// Ingredient fetching and edition family of commands
 #[derive(Subcommand)]
@@ -123,10 +124,11 @@ pub async fn actions(
 }
 
 async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
-    let ingredients = ladle::ingredient_index(origin, pattern.unwrap_or("")).await?;
+    let mut ingredients = ladle::ingredient_index(origin, pattern.unwrap_or("")).await?;
+    ingredients.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
     ingredients
         .iter()
-        .map(|x| println!("{}\t{}", x.id, x.name))
+        .map(|x| println!("{}\t{}", x.name, x.id))
         .for_each(drop);
     Ok(())
 }
