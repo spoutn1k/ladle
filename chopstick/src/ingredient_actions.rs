@@ -27,15 +27,19 @@ pub enum IngredientSubCommands {
         name: String,
 
         /// Mark the ingredient as containing dairy
+        #[arg(short, long, default_value_t = false)]
         dairy: bool,
 
         /// Mark the ingredient as containing meat
+        #[arg(short, long, default_value_t = false)]
         meat: bool,
 
         /// Mark the ingredient as containing gluten
+        #[arg(short, long, default_value_t = false)]
         gluten: bool,
 
         /// Mark the ingredient as containing animal products
+        #[arg(short, long, default_value_t = false)]
         animal_product: bool,
     },
 
