@@ -15,6 +15,7 @@ tokio = { version = "1", features = ["full"] }
 unidecode = "0.3.0"
 serde = "1.0.152"
 clap = { version = "4.1.1", features = ["derive"] }
+console = "0.15.5"
 
 [dependencies.simple_logger]
 version = "4.0.0"

@@ -4,6 +4,7 @@ use crate::ChopstickError;
 use clap::Subcommand;
 use ladle::models::RecipeIndex;
 use std::error;
+use std::io::Write;
 use unidecode::unidecode;
 
 /// Recipe fetching and edition family of commands
@@ -335,11 +336,25 @@ pub async fn actions(origin: &str, cmd: RecipeSubCommands) -> Result<(), Box<dyn
 async fn recipe_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn error::Error>> {
     let mut recipes = ladle::recipe_index(origin, pattern.unwrap_or("")).await?;
     recipes.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
-    recipes
-        .iter()
-        .map(|x| println!("{}\t{}", x.name, x.id))
-        .for_each(drop);
 
+    let name_field_width = recipes.iter().map(|r| r.name.len()).max().unwrap_or(10);
+    let mut term = console::Term::buffered_stdout();
+
+    for index in recipes.iter() {
+        write!(
+            term,
+            "{}{}\n",
+            console::pad_str(
+                &index.name,
+                name_field_width,
+                console::Alignment::Left,
+                None
+            ),
+            index.id
+        )?;
+    }
+
+    term.flush()?;
     Ok(())
 }
 
