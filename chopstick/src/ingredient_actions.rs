@@ -1,3 +1,4 @@
+use crate::helpers::display_classifications;
 use crate::ChopstickError;
 use clap::Subcommand;
 use futures::future::join_all;
@@ -139,13 +140,12 @@ async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<
         write!(
             term,
             "{}{}\n",
-            console::style(console::pad_str(
+            console::pad_str(
                 &index.name,
                 name_field_width,
                 console::Alignment::Left,
                 None
-            ))
-            .bold(),
+            ),
             index.id
         )?;
     }
@@ -158,20 +158,34 @@ async fn ingredient_show(origin: &str, id: &str) -> Result<(), Box<dyn error::Er
     let ingredient = ingredient_identify(origin, id, false).await?;
 
     let Ingredient {
-        id,
+        id: _,
         name,
         classifications,
         used_in,
     } = ladle::ingredient_get(origin, &ingredient.id).await?;
 
-    println!("{}\t{}", name, id);
-    println!("{:?}", classifications);
+    let mut term = console::Term::buffered_stdout();
 
-    used_in
-        .iter()
-        .map(|r| println!("- {}\t{}", r.name, r.id))
-        .for_each(drop);
+    write!(term, "{}\n", console::style(name).bold())?;
 
+    let terms = display_classifications(&classifications)?;
+    if terms.len() > 0 {
+        write!(
+            term,
+            "Contient: {}.\n",
+            console::style(terms.join(", ")).italic()
+        )?;
+    }
+
+    if used_in.len() > 0 {
+        write!(term, "\n{}\n", console::style("Utilisé dans:").underlined())?
+    }
+
+    for recipe in used_in.iter() {
+        write!(term, "  - {}\n", recipe.name)?;
+    }
+
+    term.flush()?;
     Ok(())
 }
 

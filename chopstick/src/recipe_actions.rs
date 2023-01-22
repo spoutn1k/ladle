@@ -1,8 +1,9 @@
+use crate::helpers::display_classifications;
 use crate::ingredient_actions::ingredient_identify;
 use crate::label_actions::label_identify;
 use crate::ChopstickError;
 use clap::Subcommand;
-use ladle::models::{Classifications, RecipeIndex};
+use ladle::models::RecipeIndex;
 use std::error;
 use std::io::Write;
 use unidecode::unidecode;
@@ -358,28 +359,6 @@ async fn recipe_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn 
     Ok(())
 }
 
-fn display_classifications(class: &Classifications) -> Result<Vec<String>, Box<dyn error::Error>> {
-    let mut terms = vec![];
-
-    if class.animal_product {
-        terms.push("animal products".to_string());
-    }
-
-    if class.meat {
-        terms.push("meat".to_string());
-    }
-
-    if class.dairy {
-        terms.push("dairy".to_string());
-    }
-
-    if class.gluten {
-        terms.push("gluten".to_string());
-    }
-
-    Ok(terms)
-}
-
 async fn recipe_show(origin: &str, recipe_clue: &str) -> Result<(), Box<dyn error::Error>> {
     let recipe_index = recipe_identify(origin, recipe_clue).await?;
     let recipe_tree = ladle::recipe_tree(origin, &recipe_index.id).await?;
@@ -393,11 +372,12 @@ async fn recipe_show(origin: &str, recipe_clue: &str) -> Result<(), Box<dyn erro
         console::style(&recipe.name).bold(),
         recipe.author
     )?;
+
     let terms = display_classifications(&recipe.classifications)?;
     if terms.len() > 0 {
         write!(
             term,
-            "Contains {}.\n",
+            "Contient: {}.\n",
             console::style(terms.join(", ")).italic()
         )?;
     }
