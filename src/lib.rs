@@ -442,3 +442,35 @@ pub async fn requirement_delete(
 
     delete(&endpoint).await
 }
+
+fn calc_missing(list: &Vec<models::Recipe>) -> Vec<String> {
+    list.iter()
+        .flat_map(|r| r.dependencies.iter().map(|d| d.recipe.id.clone()))
+        .filter(|id| {
+            let fetched = list.iter().map(|r| r.id.as_str()).collect::<Vec<&str>>();
+            !fetched.contains(&id.as_str())
+        })
+        .collect()
+}
+
+pub async fn recipe_tree(
+    url: &str,
+    recipe_id: &str,
+) -> Result<Vec<models::Recipe>, Box<dyn Error>> {
+    let root = recipe_get(url, recipe_id).await?;
+
+    let mut recipe_tree = vec![root];
+    loop {
+        let missing = calc_missing(&recipe_tree);
+
+        if missing.len() == 0 {
+            break;
+        }
+
+        for required in missing.iter() {
+            recipe_tree.push(recipe_get(url, required).await?);
+        }
+    }
+
+    Ok(recipe_tree)
+}

@@ -2,7 +2,7 @@ use crate::ingredient_actions::ingredient_identify;
 use crate::label_actions::label_identify;
 use crate::ChopstickError;
 use clap::Subcommand;
-use ladle::models::RecipeIndex;
+use ladle::models::{Classifications, RecipeIndex};
 use std::error;
 use std::io::Write;
 use unidecode::unidecode;
@@ -358,11 +358,88 @@ async fn recipe_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<dyn 
     Ok(())
 }
 
-async fn recipe_show(origin: &str, recipe_clue: &str) -> Result<(), Box<dyn error::Error>> {
-    let recipe = recipe_identify(origin, recipe_clue).await?;
-    let recipe_data = ladle::recipe_get(origin, &recipe.id).await?;
+fn display_classifications(class: &Classifications) -> Result<Vec<String>, Box<dyn error::Error>> {
+    let mut terms = vec![];
 
-    println!("{}", serde_json::to_string(&recipe_data)?);
+    if class.animal_product {
+        terms.push("animal products".to_string());
+    }
+
+    if class.meat {
+        terms.push("meat".to_string());
+    }
+
+    if class.dairy {
+        terms.push("dairy".to_string());
+    }
+
+    if class.gluten {
+        terms.push("gluten".to_string());
+    }
+
+    Ok(terms)
+}
+
+async fn recipe_show(origin: &str, recipe_clue: &str) -> Result<(), Box<dyn error::Error>> {
+    let recipe_index = recipe_identify(origin, recipe_clue).await?;
+    let recipe_tree = ladle::recipe_tree(origin, &recipe_index.id).await?;
+    let recipe = &recipe_tree[0];
+
+    let mut term = console::Term::buffered_stdout();
+
+    write!(
+        term,
+        "{} by {}\n",
+        console::style(&recipe.name).bold(),
+        recipe.author
+    )?;
+    let terms = display_classifications(&recipe.classifications)?;
+    if terms.len() > 0 {
+        write!(
+            term,
+            "Contains {}.\n",
+            console::style(terms.join(", ")).italic()
+        )?;
+    }
+    write!(term, "\n")?;
+
+    write!(term, "{}\n\n", console::style("Ingrédients").bold())?;
+    for recipe in recipe_tree.iter().rev() {
+        write!(term, "{}:\n", console::style(&recipe.name).underlined())?;
+        for req in recipe.requirements.iter() {
+            write!(term, "  ")?;
+            if req.optional {
+                write!(
+                    term,
+                    " - {}, {} (optionnel)\n",
+                    req.ingredient.name, req.quantity
+                )?;
+            } else {
+                write!(term, " - {}, {}\n", req.ingredient.name, req.quantity)?;
+            }
+        }
+        write!(term, "\n")?;
+    }
+
+    write!(term, "{}\n", console::style("Instructions").bold())?;
+    for recipe in recipe_tree.iter().rev() {
+        write!(
+            term,
+            "\n{}: {}\n",
+            console::style(&recipe.name).underlined(),
+            recipe.directions
+        )?;
+    }
+
+    let tags = recipe
+        .tags
+        .iter()
+        .map(|t| format!("#{}", t.name))
+        .collect::<Vec<_>>()
+        .join(" ");
+    write!(term, "\n{}\n", console::style(tags).italic())?;
+
+    term.flush()?;
     Ok(())
 }
 
