@@ -133,13 +133,17 @@ async fn ingredient_list(origin: &str, pattern: Option<&str>) -> Result<(), Box<
     let mut ingredients = ladle::ingredient_index(origin, pattern.unwrap_or("")).await?;
     ingredients.sort_by(|lhs, rhs| unidecode(&lhs.name).cmp(&unidecode(&rhs.name)));
 
-    let name_field_width = ingredients.iter().map(|r| r.name.len()).max().unwrap_or(10);
+    let name_field_width = ingredients
+        .iter()
+        .map(|r| unidecode(&r.name).len())
+        .max()
+        .unwrap_or(10);
     let mut term = console::Term::buffered_stdout();
 
     for index in ingredients.iter() {
         write!(
             term,
-            "{}{}\n",
+            "{}    {}\n",
             console::pad_str(
                 &index.name,
                 name_field_width,
