@@ -6,7 +6,7 @@ pub fn display_classifications(
 ) -> Result<Vec<String>, Box<dyn error::Error>> {
     let mut terms = vec![];
 
-    if class.animal_product {
+    if class.animal_product && !class.meat {
         terms.push("produits d'origine animale".to_string());
     }
 

@@ -7,19 +7,37 @@ mod recipe_actions;
 use clap::{Parser, Subcommand};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
-use std::error::Error;
-use std::fmt;
 
-#[derive(Debug)]
-struct ChopstickError(String);
+mod error {
+    use std::error::Error;
+    use std::fmt;
 
-impl fmt::Display for ChopstickError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+    #[derive(Debug)]
+    pub struct ChopstickError(pub String);
+
+    impl fmt::Display for ChopstickError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
     }
-}
 
-impl Error for ChopstickError {}
+    impl Error for ChopstickError {}
+
+    #[derive(Debug)]
+    pub struct MatchingError(pub String, pub Vec<String>);
+
+    impl fmt::Display for MatchingError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            if self.1.len() == 0 {
+                write!(f, "{}: No matches.", self.0)
+            } else {
+                write!(f, "{}: Pattern matches {}.", self.0, self.1.join(", "))
+            }
+        }
+    }
+
+    impl Error for MatchingError {}
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

@@ -1,7 +1,7 @@
+use crate::error::MatchingError;
 use crate::helpers::display_classifications;
 use crate::ingredient_actions::ingredient_identify;
 use crate::label_actions::label_identify;
-use crate::ChopstickError;
 use clap::Subcommand;
 use ladle::models::RecipeIndex;
 use std::error;
@@ -585,8 +585,8 @@ async fn recipe_identify(url: &str, clue: &str) -> Result<RecipeIndex, Box<dyn e
         }
     }
 
-    Err(Box::new(ChopstickError(format!(
-        "Failed to identify recipe from: `{}`",
-        clue
-    ))))
+    Err(Box::new(MatchingError(
+        format!("Failed to identify recipe from: `{}`", clue),
+        matches.iter().map(|r| r.name.clone()).collect(),
+    )))
 }

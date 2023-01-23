@@ -1,5 +1,5 @@
+use crate::error::MatchingError;
 use crate::helpers::display_classifications;
-use crate::ChopstickError;
 use clap::Subcommand;
 use futures::future::join_all;
 use ladle::models::{Ingredient, IngredientIndex};
@@ -316,9 +316,9 @@ pub async fn ingredient_identify(
     if create {
         ladle::ingredient_create(url, clue, false, false, false, false).await
     } else {
-        Err(Box::new(ChopstickError(format!(
-            "Failed to identify ingredient from: `{}`",
-            clue
-        ))))
+        Err(Box::new(MatchingError(
+            format!("Failed to identify ingredient from: `{}`", clue),
+            matches.iter().map(|r| r.name.clone()).collect(),
+        )))
     }
 }

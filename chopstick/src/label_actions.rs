@@ -1,4 +1,4 @@
-use crate::ChopstickError;
+use crate::error::ChopstickError;
 use clap::Subcommand;
 use ladle::models::{Label, LabelIndex};
 use std::error;
