@@ -2,7 +2,7 @@ use clap::Subcommand;
 use futures::future::join_all;
 use ladle::models::{Dependency, Ingredient, Label, LabelIndex, Recipe, RecipeIndex};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error;
 use std::fs::File;
 use std::io::BufReader;
@@ -474,7 +474,7 @@ fn strip_ids(
     ingredient_table: &HashMap<String, String>,
     label_table: &HashMap<String, String>,
 ) {
-    let mut replaced_requirements = HashSet::new();
+    let mut replaced_requirements = BTreeSet::new();
     for requirement in recipe.requirements.iter() {
         if let Some(replacement) = ingredient_table.get(&requirement.ingredient.id) {
             let mut replaced = requirement.clone();
@@ -483,7 +483,7 @@ fn strip_ids(
         }
     }
 
-    let mut replaced_dependencies = HashSet::new();
+    let mut replaced_dependencies = BTreeSet::new();
     for dependency in recipe.dependencies.iter() {
         if let Some(replacement) = recipe_table.get(&dependency.recipe.id) {
             let mut replaced = dependency.clone();
@@ -492,7 +492,7 @@ fn strip_ids(
         }
     }
 
-    let mut replaced_tags = HashSet::new();
+    let mut replaced_tags = BTreeSet::new();
     for tag in recipe.tags.iter() {
         if let Some(replacement) = label_table.get(&tag.id) {
             let mut replaced = tag.clone();
