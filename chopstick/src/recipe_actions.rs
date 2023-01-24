@@ -34,11 +34,11 @@ pub enum RecipeSubCommands {
 
         /// Recipe's directions
         #[arg(short, long)]
-        directions: Option<String>,
+        directions: bool,
 
         /// Recipe's information
         #[arg(short, long)]
-        information: Option<String>,
+        information: bool,
     },
 
     /// Edit an existing recipe on the server
@@ -56,11 +56,11 @@ pub enum RecipeSubCommands {
 
         /// Change recipe directions
         #[arg(short, long)]
-        directions: Option<String>,
+        directions: bool,
 
         /// Change recipe information
         #[arg(short, long)]
-        information: Option<String>,
+        information: bool,
     },
 
     /// Delete a recipe from the server
@@ -296,16 +296,7 @@ pub async fn actions(origin: &str, cmd: RecipeSubCommands) -> Result<(), Box<dyn
             author,
             directions,
             information,
-        } => {
-            recipe_create(
-                origin,
-                &name,
-                author.as_deref(),
-                directions.as_deref(),
-                information.as_deref(),
-            )
-            .await
-        }
+        } => recipe_create(origin, &name, author.as_deref(), directions, information).await,
         RecipeSubCommands::Edit {
             clue,
             name,
@@ -318,8 +309,8 @@ pub async fn actions(origin: &str, cmd: RecipeSubCommands) -> Result<(), Box<dyn
                 &clue,
                 name.as_deref(),
                 author.as_deref(),
-                directions.as_deref(),
-                information.as_deref(),
+                directions,
+                information,
             )
             .await
         }
@@ -432,15 +423,31 @@ async fn recipe_create(
     origin: &str,
     name: &str,
     author: Option<&str>,
-    directions: Option<&str>,
-    information: Option<&str>,
+    directions: bool,
+    information: bool,
 ) -> Result<(), Box<dyn error::Error>> {
+    let directions_str = if directions {
+        dialoguer::Editor::new()
+            .edit("Enter recipe directions")
+            .unwrap()
+    } else {
+        None
+    };
+
+    let information_str = if information {
+        dialoguer::Editor::new()
+            .edit("Enter recipe information")
+            .unwrap()
+    } else {
+        None
+    };
+
     ladle::recipe_create(
         origin,
         name,
         author.unwrap_or(""),
-        directions.unwrap_or(""),
-        information.unwrap_or(""),
+        &directions_str.unwrap_or(String::default()),
+        &information_str.unwrap_or(String::default()),
     )
     .await?;
     Ok(())
@@ -451,12 +458,37 @@ async fn recipe_edit(
     recipe_clue: &str,
     name: Option<&str>,
     author: Option<&str>,
-    directions: Option<&str>,
-    information: Option<&str>,
+    directions: bool,
+    information: bool,
 ) -> Result<(), Box<dyn error::Error>> {
     let recipe = recipe_identify(origin, recipe_clue).await?;
+    let old_recipe = ladle::recipe_get(origin, &recipe.id).await?;
 
-    ladle::recipe_update(origin, &recipe.id, name, author, directions, information).await?;
+    let directions_str = if directions {
+        dialoguer::Editor::new()
+            .edit(&old_recipe.directions)
+            .unwrap()
+    } else {
+        None
+    };
+
+    let information_str = if information {
+        dialoguer::Editor::new()
+            .edit(&old_recipe.information)
+            .unwrap()
+    } else {
+        None
+    };
+
+    ladle::recipe_update(
+        origin,
+        &recipe.id,
+        name,
+        author,
+        directions_str.as_deref(),
+        information_str.as_deref(),
+    )
+    .await?;
     Ok(())
 }
 
